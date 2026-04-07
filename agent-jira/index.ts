@@ -151,7 +151,7 @@ export const jiraMcp: McpModule = {
 	credentials: [
 		{
 			key: "ATLASSIAN_BASE_URL",
-			required: false,
+			required: true,
 			description: "Base URL de Atlassian (alternativa al header mcp-base-url por request)",
 		},
 	],

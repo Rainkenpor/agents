@@ -21,7 +21,12 @@ export const logger = createLogger({
 	level: "info",
 	format: combine(timestamp({ format: "YYYY-MM-DD HH:mm:ss" }), logFormat),
 	transports: [
-		new transports.Console(),
+		new transports.Console(
+      {
+          format: 
+            format.colorize({all:true})
+        }
+    ),
 		new transports.File({
 			filename: join(logsDir, "agents.log"),
 			maxsize: 5242880, // 5MB

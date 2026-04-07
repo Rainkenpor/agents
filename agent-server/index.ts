@@ -26,9 +26,6 @@ validateEnvs(mcpModules);
 
 for (const mcp of mcpModules) {
   logger.info(`[startup] ${mcp.displayName} → POST /${mcp.slug}/mcp  (${mcp.tools.length} tools)`);
-  for (const tool of mcp.tools) {
-    logger.info(`  • ${tool.name.padEnd(40)} ${tool.description}`);
-  }
 }
 
 // ─── 4. Crear servidor y manejar rutas ───────────────────────────────────────

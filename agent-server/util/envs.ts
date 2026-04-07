@@ -1,5 +1,8 @@
 import type { McpModule } from "../types.ts";
 import { logger } from "./logger.ts";
+import dotenv from "dotenv";
+
+dotenv.config({path: "../.env"});
 
 /**
  * Valida las credentials de todos los MCPs registrados.
@@ -7,7 +10,7 @@ import { logger } from "./logger.ts";
  * - required: false → loguea warn y continúa
  */
 export function validateEnvs(modules: McpModule[]): void {
-	let hasErrors = false;
+	const hasErrors = [];
 
 	for (const mcp of modules) {
 		if (mcp.credentials.length === 0) continue;
@@ -20,7 +23,7 @@ export function validateEnvs(modules: McpModule[]): void {
 					logger.error(
 						`[envs] FALTA variable requerida: ${cred.key} (${mcp.displayName}) — ${cred.description}`,
 					);
-					hasErrors = true;
+					hasErrors.push(cred.key);
 				} else {
 					logger.warn(
 						`[envs] ${cred.key}: no definida (opcional) — ${cred.description}`,
@@ -32,9 +35,12 @@ export function validateEnvs(modules: McpModule[]): void {
 		}
 	}
 
-	if (hasErrors) {
+	if (hasErrors.length > 0) {
+    logger.error(
+      `[envs] Startup abortado: faltan variables de entorno requeridas: ${hasErrors.join(", ")}`,
+    );
 		throw new Error(
-			"Startup abortado: faltan variables de entorno requeridas. Revisa los logs.",
+			"Startup abortado: faltan variables de entorno requeridas: " + hasErrors.join(", "),
 		);
 	}
 }

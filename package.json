@@ -1,0 +1,17 @@
+{
+  "name": "agents-1",
+  "version": "1.0.0",
+  "type": "module",
+  "workspaces": [
+    "agent-server",
+    "agent-document",
+    "agent-jira",
+    "agent-playwright",
+    "agent-template"
+  ],
+  "scripts": {
+    "start": "bun run --filter agent-server start"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
