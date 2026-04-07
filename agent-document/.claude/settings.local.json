@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python -c \"from fastmcp import FastMCP; print\\(''FastMCP OK''\\)\")",
+      "Bash(python -c \":*)",
+      "Skill(update-config)",
+      "Bash(bun install:*)",
+      "Bash(ATLASSIAN_BASE_URL=https://test.atlassian.net ATLASSIAN_EMAIL=test@test.com timeout 3 bun run server.ts)",
+      "Bash(bun add:*)",
+      "Bash(timeout 5 bun run server.ts)",
+      "Bash(timeout 4 bash -c 'PORT=3099 bun run server.ts')"
+    ]
+  }
+}

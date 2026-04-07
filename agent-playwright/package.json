@@ -1,0 +1,12 @@
+{
+  "name": "playwright-mcp",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "bun run server.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "puppeteer": "^24.40.0",
+    "zod": "^3.25.23"
+  }
+}

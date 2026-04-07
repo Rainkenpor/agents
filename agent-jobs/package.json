@@ -1,0 +1,23 @@
+{
+  "name": "git-watcher",
+  "version": "1.0.0",
+  "description": "Git repository branch watcher — monorepo root",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently --names \"backend,frontend\" --prefix-colors \"green,cyan\" \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
+    "build": "npm run build --workspace=backend && npm run build --workspace=frontend",
+    "start": "npm run dev --workspace=backend",
+    "ui": "npm run dev --workspace=frontend",
+    "install:all": "npm install",
+    "db:generate": "npm run db:generate --workspace=backend",
+    "db:migrate": "npm run db:migrate --workspace=backend"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "concurrently": "^9.1.2"
+  }
+}

@@ -1,0 +1,124 @@
+{
+  "browser": {
+    "type": "chromium",
+    "headless": false
+  },
+  "steps": [
+    {
+      "action": "goto",
+      "url": "https://www.figma.com/design/uPTql31eAlo5JKf2QChoF2/Sin-t%C3%ADtulo?node-id=0-1&p=f&t=WJjP2BXZSpkhc6jW-0"
+    },
+    {
+      "action": "waitForSelector",
+      "selector": "canvas",
+      "timeout": 60000
+    },
+    {
+      "action": "waitForTimeout",
+      "ms": 5000
+    },
+    {
+      "action": "click",
+      "selector": "canvas",
+      "options": { "force": true }
+    },
+    {
+      "action": "waitForTimeout",
+      "ms": 5000
+    },
+    {
+      "action": "click",
+      "selector": "[data-onboarding-key=\"toolbelt-actions\"]",
+      "nth": 0
+    },
+    {
+      "action": "waitForSelector",
+      "selector": "input[id=\"email\"]",
+      "state": "visible"
+    },
+    {
+      "action": "fill",
+      "selector": "input[id=\"email\"]",
+      "value": "wronquillo@distelsa.com.gt"
+    },
+    {
+      "action": "click",
+      "selector": "button[type=\"submit\"]"
+    },
+    {
+      "action": "waitForSelector",
+      "selector": "input[id=\"current-password\"]",
+      "state": "visible"
+    },
+    {
+      "action": "fill",
+      "selector": "input[id=\"current-password\"]",
+      "value": "R63wr#:-W#\">b%5"
+    },
+    {
+      "action": "click",
+      "selector": "button[type=\"submit\"]"
+    },
+    {
+      "action": "waitForTimeout",
+      "ms": 5000
+    },
+    {
+      "action": "click",
+      "selector": "[data-onboarding-key=\"toolbelt-actions\"]",
+      "nth": 0
+    },
+    {
+      "action": "waitForTimeout",
+      "ms": 1000
+    },
+    {
+      "action": "type",
+      "text": "Talk To Figma MCP Plugin"
+    },
+    {
+      "action": "waitForTimeout",
+      "ms": 2000
+    },
+    {
+      "action": "press",
+      "key": "Enter"
+    },
+    {
+      "action": "waitForTimeout",
+      "ms": 5000
+    },
+    {
+      "action": "findPluginFrame",
+      "retries": 15,
+      "retryDelay": 2000,
+      "frameSelectors": [
+        "[id=\"connection-status\"]",
+        "button:text-matches('conectar', 'i')"
+      ]
+    },
+    {
+      "action": "clickIfVisible",
+      "selector": "button",
+      "hasText": "conectar",
+      "inFrame": true
+    },
+    {
+      "action": "waitForTimeout",
+      "ms": 3000
+    },
+    {
+      "action": "waitForSelector",
+      "selector": "[id=\"connection-status\"] strong",
+      "state": "visible",
+      "timeout": 15000,
+      "inFrame": true
+    },
+    {
+      "action": "getText",
+      "selector": "[id=\"connection-status\"] strong",
+      "inFrame": true,
+      "outputKey": "channelText"
+    }
+  ]
+}

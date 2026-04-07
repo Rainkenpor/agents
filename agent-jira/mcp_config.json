@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "atlassian": {
+      "command": "python",
+      "args": ["C:/Projects/JAVASCRIPT/agent-jira/main.py"],
+      "env": {}
+    }
+  }
+}
