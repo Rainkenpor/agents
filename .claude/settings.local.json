@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(bun install:*)",
+      "Bash(timeout 5 bun run index.ts)"
+    ]
+  }
+}
