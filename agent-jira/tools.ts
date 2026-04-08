@@ -2,6 +2,51 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { type AtlassianHelpers, adf, ok } from "./types.ts";
 
+// ─── Helpers para el POC de Arquitectura ──────────────────────────────────────
+
+/** Extrae el ID de página de una URL de Confluence
+ *  Ej: https://org.atlassian.net/wiki/spaces/ADS/pages/1425604609/Title → "1425604609" */
+function extractPageId(url: string): string | null {
+	const m = url.match(/\/pages\/(\d+)/);
+	return m ? m[1] : null;
+}
+
+/** Extrae el space key de una URL de Confluence
+ *  Ej: https://org.atlassian.net/wiki/spaces/ADS/pages/... → "ADS" */
+function extractSpaceKey(url: string): string | null {
+	const m = url.match(/\/spaces\/([A-Za-z0-9_~]+)\/pages/);
+	return m ? m[1] : null;
+}
+
+/** Convierte storage XHTML a texto plano legible */
+function storageToPlain(storage: string): string {
+	return storage
+		.replace(/<[^>]+>/g, " ")
+		.replace(/&nbsp;/g, " ")
+		.replace(/&lt;/g, "<")
+		.replace(/&gt;/g, ">")
+		.replace(/&amp;/g, "&")
+		.replace(/&quot;/g, '"')
+		.replace(/&#39;/g, "'")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+/** Extrae la lista de secciones (H1–H6) de un storage XHTML */
+function extractSections(storage: string): Array<{ level: number; title: string }> {
+	const sections: Array<{ level: number; title: string }> = [];
+	const re = /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi;
+	for (const m of storage.matchAll(re)) {
+		sections.push({ level: Number.parseInt(m[1]), title: storageToPlain(m[2]) });
+	}
+	return sections;
+}
+
+// Constantes derivadas de CONFLUENCE_POC_URL (leídas una sola vez al arrancar)
+const _pocUrl = (process.env.CONFLUENCE_POC_URL ?? "").trim();
+const POC_PAGE_ID = extractPageId(_pocUrl);
+const POC_SPACE_KEY = extractSpaceKey(_pocUrl);
+
 export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 	const {
 		jiraUrl,
@@ -1216,6 +1261,310 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 			];
 			return ok(
 				await apiPost(cfluUrl(`content/${page_id}/restriction`), payload),
+			);
+		},
+	);
+
+	// ══════════════════════════════════════════════════════════════════════════
+	// CONFLUENCE – POC ARQUITECTURA (historias de usuario)
+	// Todas las tools usan CONFLUENCE_POC_URL del .env como raíz.
+	// ══════════════════════════════════════════════════════════════════════════
+
+	s.tool(
+		"confluence_poc_list_pages",
+		"Lista las páginas de la jerarquía configurada en CONFLUENCE_POC_URL. Devuelve id, título y link de cada página para explorar la documentación de arquitectura.",
+		{
+			page_id: z
+				.string()
+				.optional()
+				.describe(
+					"ID de la página a partir de la cual listar. Si se omite usa la raíz del POC.",
+				),
+			depth: z
+				.enum(["children", "all"])
+				.default("children")
+				.describe("children: sólo hijas directas; all: todos los descendientes"),
+			limit: z.number().int().default(50),
+			start: z.number().int().default(0),
+		},
+		async ({ page_id, depth, limit, start }) => {
+			const rootId = page_id ?? POC_PAGE_ID;
+			if (!rootId)
+				throw new Error(
+					"No se encontró el ID raíz. Configura CONFLUENCE_POC_URL en .env o proporciona page_id.",
+				);
+			if (depth === "all") {
+				return ok(
+					await apiGet(cfluUrl(`content/${rootId}/descendant/page`), {
+						limit,
+						start,
+						expand: "ancestors",
+					}),
+				);
+			}
+			return ok(
+				await apiGet(cfluUrl(`content/${rootId}/child/page`), {
+					limit,
+					start,
+					expand: "version,space",
+				}),
+			);
+		},
+	);
+
+	s.tool(
+		"confluence_poc_read_page",
+		"Lee el contenido completo de una página del POC. Devuelve texto plano, storage XHTML, versión y ancestros. Acepta ID o título.",
+		{
+			page_id: z.string().optional().describe("ID de la página"),
+			page_title: z
+				.string()
+				.optional()
+				.describe(
+					"Título de la página (alternativa al ID). Busca en el space del POC.",
+				),
+		},
+		async ({ page_id, page_title }) => {
+			let id = page_id;
+			if (!id) {
+				if (!page_title)
+					throw new Error("Proporciona page_id o page_title.");
+				const spaceKey = POC_SPACE_KEY;
+				if (!spaceKey)
+					throw new Error(
+						"No se pudo determinar el space key. Configura CONFLUENCE_POC_URL.",
+					);
+				const res = (await apiGet(cfluUrl("content"), {
+					spaceKey,
+					title: page_title,
+					type: "page",
+					expand: "body.storage,version",
+				})) as { results: Array<{ id: string }> };
+				if (!res.results?.length)
+					throw new Error(`Página no encontrada: "${page_title}"`);
+				id = res.results[0].id;
+			}
+			const page = (await apiGet(cfluUrl(`content/${id}`), {
+				expand: "body.storage,version,space,ancestors",
+			})) as {
+				title: string;
+				body?: { storage?: { value?: string } };
+				version?: { number?: number };
+				ancestors?: Array<{ id: string; title: string }>;
+				space?: { key: string };
+			};
+			const storage = page.body?.storage?.value ?? "";
+			return ok({
+				id,
+				title: page.title,
+				space: page.space?.key,
+				version: page.version?.number,
+				ancestors: (page.ancestors ?? []).map((a) => ({
+					id: a.id,
+					title: a.title,
+				})),
+				plainText: storageToPlain(storage),
+				storage,
+			});
+		},
+	);
+
+	s.tool(
+		"confluence_poc_list_page_sections",
+		"Lista los encabezados (H1–H6) de una página del POC para entender su estructura antes de editarla.",
+		{
+			page_id: z.string().optional(),
+			page_title: z.string().optional(),
+		},
+		async ({ page_id, page_title }) => {
+			let id = page_id;
+			let storage: string;
+
+			if (!id) {
+				if (!page_title)
+					throw new Error("Proporciona page_id o page_title.");
+				const spaceKey = POC_SPACE_KEY;
+				if (!spaceKey)
+					throw new Error(
+						"No se pudo determinar el space key. Configura CONFLUENCE_POC_URL.",
+					);
+				const res = (await apiGet(cfluUrl("content"), {
+					spaceKey,
+					title: page_title,
+					type: "page",
+					expand: "body.storage",
+				})) as {
+					results: Array<{
+						id: string;
+						title: string;
+						body?: { storage?: { value?: string } };
+					}>;
+				};
+				if (!res.results?.length)
+					throw new Error(`Página no encontrada: "${page_title}"`);
+				id = res.results[0].id;
+				storage = res.results[0].body?.storage?.value ?? "";
+				return ok({
+					id,
+					title: res.results[0].title,
+					sections: extractSections(storage),
+				});
+			}
+
+			const page = (await apiGet(cfluUrl(`content/${id}`), {
+				expand: "body.storage",
+			})) as { title: string; body?: { storage?: { value?: string } } };
+			storage = page.body?.storage?.value ?? "";
+			return ok({ id, title: page.title, sections: extractSections(storage) });
+		},
+	);
+
+	s.tool(
+		"confluence_poc_create_subpage",
+		"Crea una nueva subpágina dentro del POC de Arquitectura. Si no se indica parent_id usa la raíz configurada en CONFLUENCE_POC_URL.",
+		{
+			title: z.string().describe("Título de la nueva página"),
+			body: z
+				.string()
+				.describe("Contenido en formato storage (XHTML) o wiki markup"),
+			parent_id: z
+				.string()
+				.optional()
+				.describe(
+					"ID de la página padre. Si se omite usa la raíz del POC.",
+				),
+			representation: z
+				.string()
+				.default("storage")
+				.describe("storage (XHTML), wiki, o markdown"),
+		},
+		async ({ title, body, parent_id, representation }) => {
+			const spaceKey = POC_SPACE_KEY;
+			if (!spaceKey)
+				throw new Error(
+					"No se pudo determinar el space key. Configura CONFLUENCE_POC_URL.",
+				);
+			const parentId = parent_id ?? POC_PAGE_ID;
+			if (!parentId)
+				throw new Error(
+					"No se encontró parent_id. Configura CONFLUENCE_POC_URL o proporciona parent_id.",
+				);
+			const payload: Record<string, unknown> = {
+				type: "page",
+				title,
+				space: { key: spaceKey },
+				body: { [representation]: { value: body, representation } },
+				ancestors: [{ id: parentId }],
+			};
+			return ok(await apiPost(cfluUrl("content"), payload));
+		},
+	);
+
+	s.tool(
+		"confluence_poc_update_page",
+		"Actualiza el contenido de una página del POC. Obtiene la versión actual automáticamente, no es necesario conocerla.",
+		{
+			page_id: z.string().describe("ID de la página a actualizar"),
+			title: z.string().describe("Título (puede ser el mismo o uno nuevo)"),
+			body: z
+				.string()
+				.describe("Nuevo contenido completo en formato storage (XHTML)"),
+			representation: z.string().default("storage"),
+			version_comment: z
+				.string()
+				.optional()
+				.describe("Comentario del cambio para el historial"),
+		},
+		async ({ page_id, title, body, representation, version_comment }) => {
+			const current = (await apiGet(cfluUrl(`content/${page_id}`), {
+				expand: "version",
+			})) as { version?: { number?: number } };
+			const newVersion = (current.version?.number ?? 0) + 1;
+			const payload: Record<string, unknown> = {
+				version: {
+					number: newVersion,
+					...(version_comment ? { message: version_comment } : {}),
+				},
+				type: "page",
+				title,
+				body: { [representation]: { value: body, representation } },
+			};
+			return ok(await apiPut(cfluUrl(`content/${page_id}`), payload));
+		},
+	);
+
+	s.tool(
+		"confluence_poc_append_to_page",
+		"Agrega contenido al final de una página del POC sin reemplazar el contenido existente. Ideal para añadir historias de usuario incrementalmente.",
+		{
+			page_id: z.string().describe("ID de la página"),
+			new_content: z
+				.string()
+				.describe(
+					"Contenido a agregar al final en formato storage (XHTML)",
+				),
+			section_title: z
+				.string()
+				.optional()
+				.describe(
+					"Si se provee, inserta un <h2> con este título antes del nuevo contenido",
+				),
+			version_comment: z.string().optional(),
+		},
+		async ({ page_id, new_content, section_title, version_comment }) => {
+			const current = (await apiGet(cfluUrl(`content/${page_id}`), {
+				expand: "body.storage,version",
+			})) as {
+				title: string;
+				version?: { number?: number };
+				body?: { storage?: { value?: string } };
+			};
+			const currentBody = current.body?.storage?.value ?? "";
+			const heading = section_title ? `<h2>${section_title}</h2>` : "";
+			const newBody = `${currentBody}${heading}${new_content}`;
+			const newVersion = (current.version?.number ?? 0) + 1;
+			const payload: Record<string, unknown> = {
+				version: {
+					number: newVersion,
+					...(version_comment ? { message: version_comment } : {}),
+				},
+				type: "page",
+				title: current.title,
+				body: { storage: { value: newBody, representation: "storage" } },
+			};
+			return ok(await apiPut(cfluUrl(`content/${page_id}`), payload));
+		},
+	);
+
+	s.tool(
+		"confluence_poc_search_in_space",
+		"Busca páginas dentro del espacio del POC de Arquitectura por texto libre o expresión CQL.",
+		{
+			query: z.string().describe("Texto libre o expresión CQL"),
+			use_cql: z
+				.boolean()
+				.default(false)
+				.describe(
+					"Si es true, trata query como CQL directo; si es false hace búsqueda de texto",
+				),
+			limit: z.number().int().default(25),
+			start: z.number().int().default(0),
+		},
+		async ({ query, use_cql, limit, start }) => {
+			let cql: string;
+			if (use_cql) {
+				cql = query;
+			} else {
+				cql = `text~"${query}" AND type=page`;
+				if (POC_SPACE_KEY) cql += ` AND space.key="${POC_SPACE_KEY}"`;
+			}
+			return ok(
+				await apiGet(cfluUrl("content/search"), {
+					cql,
+					limit,
+					start,
+					expand: "version,space,ancestors",
+				}),
 			);
 		},
 	);

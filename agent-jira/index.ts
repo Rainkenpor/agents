@@ -154,6 +154,11 @@ export const jiraMcp: McpModule = {
 			required: true,
 			description: "Base URL de Atlassian (alternativa al header mcp-base-url por request)",
 		},
+		{
+			key: "CONFLUENCE_POC_URL",
+			required: false,
+			description: "URL de la página raíz de Confluence para el POC de Arquitectura, ej: https://org.atlassian.net/wiki/spaces/ADS/pages/1425604609/POC_Title",
+		},
 	],
 	tools: [
 		// ── Jira Issues
@@ -239,6 +244,14 @@ export const jiraMcp: McpModule = {
 		// ── Confluence – Restricciones
 		{ name: "confluence_get_restrictions", description: "Obtiene las restricciones de acceso de una página" },
 		{ name: "confluence_add_restriction",  description: "Añade una restricción de acceso a una página" },
+		// ── Confluence – POC Arquitectura (historias de usuario)
+		{ name: "confluence_poc_list_pages",         description: "Lista páginas dentro del POC de Arquitectura (raíz en CONFLUENCE_POC_URL)" },
+		{ name: "confluence_poc_read_page",          description: "Lee el contenido de una página del POC por ID o título; devuelve texto plano y storage" },
+		{ name: "confluence_poc_list_page_sections", description: "Lista los encabezados (H1–H6) de una página del POC para ver su estructura" },
+		{ name: "confluence_poc_create_subpage",     description: "Crea una nueva subpágina en el POC bajo el padre indicado (o la raíz si se omite)" },
+		{ name: "confluence_poc_update_page",        description: "Actualiza el contenido de una página del POC con auto-incremento de versión" },
+		{ name: "confluence_poc_append_to_page",     description: "Agrega contenido al final de una página del POC sin reemplazar el existente" },
+		{ name: "confluence_poc_search_in_space",    description: "Busca páginas en el espacio del POC por texto libre o CQL" },
 		// ── Genérico
 		{ name: "atlassian_request",           description: "Realiza una solicitud directa a la API de Atlassian (endpoints no cubiertos)" },
 	],
