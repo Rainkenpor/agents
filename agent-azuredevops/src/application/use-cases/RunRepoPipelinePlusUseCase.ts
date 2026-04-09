@@ -1,6 +1,6 @@
 import type { AzureConnection } from "../../domain/types.js";
 import type { AzureDevOpsPort } from "../../domain/ports/AzureDevOpsPort.js";
-import { PipelineYamlGenerator, type PipelineYamlInput } from "../../domain/services/PipelineYamlGenerator.js";
+import { hasPipelineTemplate, PipelineYamlGenerator, type PipelineYamlInput } from "../../domain/services/PipelineYamlGenerator.js";
 
 export interface RunRepoPipelinePlusUseCaseInput extends PipelineYamlInput {
   connection: AzureConnection;
@@ -14,6 +14,12 @@ export class RunRepoPipelinePlusUseCase {
 
   async execute(input: RunRepoPipelinePlusUseCaseInput) {
     await this.azureDevOps.validatePat(input.connection.organization, input.connection.pat);
+
+    if (!hasPipelineTemplate(input.ambiente, input.tecnologia)) {
+      throw new Error(
+        `La combinacion '${input.ambiente}/${input.tecnologia}' aun no tiene plantilla CI/CD soportada por este servidor MCP.`,
+      );
+    }
 
     const repo = await this.azureDevOps.getRepository(input.connection, input.repositorio);
     if (!repo) {
@@ -35,7 +41,7 @@ export class RunRepoPipelinePlusUseCase {
     const pipelineAlreadyExists = await this.azureDevOps.fileExists(
       input.connection,
       input.repositorio,
-      generated.workingBranch,
+      input.rama,
       `/${generated.pipelineRelativePath}`,
     );
 

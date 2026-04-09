@@ -1,3 +1,5 @@
+import { getDefaultOrganization } from "./config.js";
+
 const KEBAB_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function kebabError(value: string, kind: string): string {
@@ -20,5 +22,5 @@ export function ensureKebabCase(value: string, kind: string): string {
 }
 
 export function normalizeOrganization(value?: string): string {
-  return value?.trim() || "grupodistelsa";
+  return value?.trim() || getDefaultOrganization();
 }

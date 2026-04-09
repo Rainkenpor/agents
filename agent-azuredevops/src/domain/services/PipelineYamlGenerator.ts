@@ -40,6 +40,13 @@ export interface PipelineYamlInput {
   csproj?: string;
 }
 
+export function hasPipelineTemplate(
+  ambiente: PipelineYamlInput["ambiente"],
+  tecnologia: PipelineYamlInput["tecnologia"],
+): boolean {
+  return Boolean(CI_TEMPLATES[ambiente]?.[tecnologia]);
+}
+
 export class PipelineYamlGenerator {
   deriveMetadata(repoName: string, branch: PipelineYamlInput["rama"]) {
     const prefijo = BRANCH_PREFIX[branch] ?? branch;

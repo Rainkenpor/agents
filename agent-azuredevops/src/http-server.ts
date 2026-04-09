@@ -1,60 +1,43 @@
 #!/usr/bin/env bun
-import http from "node:http";
-import { handler } from "./index.js";
+// ─── HTTP Server ──────────────────────────────────────────────────────────────
+//
+// Transport:  Streamable HTTP  →  POST /mcp
+// Env:        PORT (default 8787), HOST (default 127.0.0.1)
+// Run:        bun run start:http
 
-const host = process.env["HOST"] || "127.0.0.1";
-const port = Number(process.env["PORT"] || "8787");
+import { createServer } from "node:http";
+import { agentAzureDevOpsMcp } from "./index.js";
+import { envs } from "./util/envs.js";
+import { registryTool } from "./tools.js";
 
-function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    let body = "";
+const { PORT, HOST } = envs;
 
-    req.on("data", (chunk) => {
-      body += chunk;
-    });
-
-    req.on("end", () => {
-      if (!body.trim()) {
-        resolve(undefined);
-        return;
-      }
-
-      try {
-        resolve(JSON.parse(body));
-      } catch (error) {
-        reject(new Error(`Invalid JSON body: ${error instanceof Error ? error.message : String(error)}`));
-      }
-    });
-
-    req.on("error", reject);
-  });
-}
-
-const server = http.createServer(async (req, res) => {
-  if (!req.url) {
-    res.writeHead(400, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Missing request URL" }));
-    return;
-  }
-
-  const url = new URL(req.url, `http://${req.headers.host ?? `${host}:${port}`}`);
-  if (url.pathname !== "/mcp") {
+const httpServer = createServer(async (req, res) => {
+  if (!req.url?.startsWith("/mcp")) {
     res.writeHead(404, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Not Found" }));
+    res.end(JSON.stringify({ error: "Not Found. Use /mcp" }));
     return;
   }
 
-  try {
-    const parsedBody = req.method === "POST" ? await readJsonBody(req) : undefined;
-    await handler(req, res, parsedBody);
-  } catch (error) {
-    if (!res.headersSent) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk as Buffer);
+  const rawBody = Buffer.concat(chunks);
+
+  let parsedBody: unknown;
+  if (rawBody.length > 0) {
+    try {
+      parsedBody = JSON.parse(rawBody.toString());
+    } catch {
+      // non-JSON body (e.g. SSE GET) — no method to inspect
     }
   }
+
+  await agentAzureDevOpsMcp.handler(req, res, parsedBody);
 });
 
-server.listen(port, host, () => {
-  process.stderr.write(`[agent-azuredevops] MCP Streamable HTTP server listening on http://${host}:${port}/mcp\n`);
+httpServer.listen(PORT, HOST, () => {
+  console.log(`✓ MCP server → http://${HOST}:${PORT}/mcp`);
+  for (const tool of registryTool) {
+    console.log(`  • ${tool.name.padEnd(35, " ")} — ${tool.description}`);
+  }
 });

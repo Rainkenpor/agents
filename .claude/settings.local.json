@@ -3,7 +3,30 @@
     "allow": [
       "Bash(git:*)",
       "Bash(bun install:*)",
-      "Bash(timeout 5 bun run index.ts)"
+      "Bash(timeout 5 bun run index.ts)",
+      "Bash(~/.bun/bin/bun install:*)",
+      "Bash(command -v bun)",
+      "Read(//c/Users/asolis/.bun/**)",
+      "Read(//c/Users/asolis/AppData/Local/**)",
+      "Read(//c/Users/asolis/AppData/Roaming/**)",
+      "Read(//c/Users/asolis/**)",
+      "Bash(cmd.exe /c \"where bun 2>&1\")",
+      "Bash(cmd.exe /c \"where bun\")",
+      "Bash(cmd.exe /c \"bun --version\")",
+      "Bash(cmd.exe /c \"cd \\\\\"C:\\\\\\\\Users\\\\\\\\asolis\\\\\\\\OneDrive - Distelsa\\\\\\\\Escritorio\\\\\\\\AI\\\\\\\\agent-mcps\\\\\\\\agent-azuredevops\\\\\" && bun install\")",
+      "Bash(cmd.exe /c \"npm --version\")",
+      "Bash(cmd.exe /c \"node --version\")",
+      "Bash(\"/c/Program Files/nodejs/npm.cmd\" --version)",
+      "Bash(\"/c/Program Files/nodejs/node.exe\" --version)",
+      "Bash(\"/c/Program Files/nodejs/npm.cmd\" install)",
+      "Bash(\"/c/Program Files/nodejs/node_modules/typescript/bin/tsc\" --noEmit)",
+      "Bash(\"./node_modules/.bin/tsc\" --noEmit)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(powershell.exe -Command \"Get-Command bun -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
+      "Bash(powershell.exe -Command '& { $env:Path -split '\\\\'';'\\\\'' | ForEach-Object { if \\(Test-Path \"$_\\\\bun.exe\"\\) { $_ } } }')",
+      "Bash(powershell.exe -Command \"Get-ChildItem -Path C:\\\\Users\\\\asolis -Filter bun.exe -Recurse -ErrorAction SilentlyContinue -Depth 5 | Select-Object FullName\")",
+      "Bash(\"/c/Users/asolis/.bun/bin/bun.exe\" install:*)",
+      "Bash(\"/c/Users/asolis/.bun/bin/bun.exe\" run:*)"
     ]
   }
 }

@@ -63,3 +63,8 @@
   "sonar_name": "Mi API"
 }
 ```
+
+Notas:
+- valida primero con `azdo_validate_pat` si no conoces el alcance del PAT
+- esta tool crea rama de trabajo, push y PR si la rama destino aun no tiene el YAML
+- hoy solo hay plantillas reales para `nodejs`, `vite`, `netcore` y `react`
