@@ -1,0 +1,10 @@
+﻿{
+  "mcpServers": {
+    "agent-azuredevops": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": ["/c", "bun", "src/server.ts"],
+      "env": {}
+    }
+  }
+}
