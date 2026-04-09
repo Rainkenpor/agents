@@ -10,10 +10,8 @@ Servidor MCP para Azure DevOps organizado con arquitectura hexagonal.
 
 - El PAT siempre debe viajar como input de la tool.
 - No existe almacenamiento de PAT en el servidor.
-- Usa las tools "use_case_*" para flujos completos de negocio con efectos en repos, ramas, PRs o pipelines.
-- Usa las tools "azdo_*" para operaciones puntuales de infraestructura o verificaciones previas.
-- Usa "render_helm_values" como utilidad de soporte, no como caso de uso de flow.
-- Antes de crear recursos, valida el acceso con "azdo_validate_pat" si no conoces el alcance del PAT.
+- Solo las tools "use_case_*" estan disponibles. Representan flujos completos de negocio con efectos en repos, ramas, PRs o pipelines.
+- Las operaciones de infraestructura (validacion de PAT, creacion de repos, registro de pipelines) son internas y se ejecutan dentro de cada use-case automaticamente.
 - "use_case_repo_pipeline_plus" solo soporta combinaciones ambiente/tecnologia con plantilla CI/CD real.
 `.trim();
 

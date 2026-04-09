@@ -1,7 +1,7 @@
 // ─── Azure DevOps Tools ───────────────────────────────────────────────────────
 //
-// Define las 8 herramientas MCP como ToolDefinition[].
-// Los use cases y adapters se instancian una vez a nivel de módulo (singletons).
+// Expone los 3 use-cases como tools MCP.
+// Los adapters y generadores se instancian una vez a nivel de módulo (singletons).
 
 import { z } from "zod";
 import type { ToolDefinition } from "../types.js";
@@ -31,151 +31,12 @@ function buildConnection(organization: string | undefined, project: string, pat:
 }
 
 // ─── Tool definitions ─────────────────────────────────────────────────────────
+//
+// Solo se exponen los use-cases como tools MCP.
+// Las operaciones de infraestructura (azdo_*, render_*) son internas y se
+// invocan exclusivamente desde los use-cases, no directamente por agentes.
 
 export const azureDevOpsTools: ToolDefinition[] = [
-  {
-    name: "azdo_validate_pat",
-    description: "Usa esta tool para verificar acceso antes de crear repositorios, pipelines o PRs. El PAT se usa solo en esta invocacion.",
-    inputSchema: {
-      organization: z.string().optional().describe(`Organizacion de Azure DevOps. Default: ${getDefaultOrganization()}.`),
-      pat: z.string().describe("Personal Access Token de Azure DevOps."),
-    },
-    handler: async ({ organization, pat }: { organization?: string; pat: string }) =>
-      ok(await azureDevOps.validatePat(normalizeOrganization(organization), pat)),
-  },
-
-  {
-    name: "azdo_check_repository",
-    description: "Usa esta tool cuando necesites confirmar que un repositorio existe antes de operar sobre el. No modifica Azure DevOps.",
-    inputSchema: {
-      organization: z.string().optional().describe(`Organizacion de Azure DevOps. Default: ${getDefaultOrganization()}.`),
-      project: z.string().describe("Proyecto de Azure DevOps donde vive el repositorio."),
-      repo_name: z.string().describe("Nombre del repositorio en kebab-case."),
-      pat: z.string().describe("Personal Access Token con permisos de lectura."),
-    },
-    handler: async ({ organization, project, repo_name, pat }: { organization?: string; project: string; repo_name: string; pat: string }) => {
-      ensureKebabCase(repo_name, "repositorio");
-      const repo = await azureDevOps.getRepository(buildConnection(organization, project, pat), repo_name);
-      if (!repo) {
-        return { isError: true, content: [{ type: "text" as const, text: `El repositorio '${repo_name}' no existe en '${project}'.` }] };
-      }
-      return ok(repo);
-    },
-  },
-
-  {
-    name: "azdo_create_repository",
-    description: "Usa esta tool para asegurar que un repositorio exista antes de hacer pushes o registrar pipelines. Puede crear recursos en Azure DevOps.",
-    inputSchema: {
-      organization: z.string().optional().describe(`Organizacion de Azure DevOps. Default: ${getDefaultOrganization()}.`),
-      project: z.string().describe("Proyecto de Azure DevOps donde se creara o validara el repositorio."),
-      repo_name: z.string().describe("Nombre del repositorio en kebab-case."),
-      pat: z.string().describe("Personal Access Token con permisos para crear repositorios."),
-    },
-    handler: async ({ organization, project, repo_name, pat }: { organization?: string; project: string; repo_name: string; pat: string }) => {
-      ensureKebabCase(repo_name, "repositorio");
-      const result = await azureDevOps.ensureRepository(buildConnection(organization, project, pat), repo_name);
-      return ok({ ...result.repo, isNew: result.isNew });
-    },
-  },
-
-  {
-    name: "render_helm_values",
-    description: "Usa esta tool para previsualizar el values.yaml de despliegue. No escribe archivos ni cambia Azure DevOps.",
-    inputSchema: {
-      app_repo_name: z.string().describe("Nombre del repositorio de la aplicacion en kebab-case."),
-      image_project: z.string().describe("Proyecto o namespace donde se publican las imagenes."),
-      replica_count: z.number().int().positive().default(1).describe("Cantidad inicial de replicas."),
-      has_service: z.boolean().describe("Indica si la app expone un Service de Kubernetes."),
-      service_port: z.number().int().positive().optional().describe("Puerto del Service. Si no llega, se usa 80."),
-      has_ingress: z.boolean().describe("Indica si se debe publicar Ingress."),
-      hosting: z.enum(["On-Premise", "AWS"]).optional().describe("Tipo de hosting para ajustar className y anotaciones."),
-      web_host: z.string().optional().describe("Hostname publico o interno del Ingress."),
-      alb_name: z.string().optional().describe("Nombre del ALB compartido cuando el hosting es AWS."),
-      branch: z.string().default("{{BRANCH}}").describe("Tag/branch que se escribira en la imagen."),
-    },
-    handler: async ({
-      app_repo_name,
-      image_project,
-      replica_count,
-      has_service,
-      service_port,
-      has_ingress,
-      hosting,
-      web_host,
-      alb_name,
-      branch,
-    }: {
-      app_repo_name: string;
-      image_project: string;
-      replica_count: number;
-      has_service: boolean;
-      service_port?: number;
-      has_ingress: boolean;
-      hosting?: "On-Premise" | "AWS";
-      web_host?: string;
-      alb_name?: string;
-      branch: string;
-    }) =>
-      ok(helmValuesGenerator.generate({
-        appRepoName: app_repo_name,
-        imageProject: image_project,
-        replicaCount: replica_count,
-        hasService: has_service,
-        servicePort: service_port ?? 80,
-        hasIngress: has_ingress,
-        hosting,
-        webHost: web_host,
-        albName: alb_name,
-        branch,
-      })),
-  },
-
-  {
-    name: "azdo_register_pipeline",
-    description: "Usa esta tool cuando el YAML ya existe en el repo y solo falta registrarlo como pipeline. No genera archivos.",
-    inputSchema: {
-      organization: z.string().optional().describe(`Organizacion de Azure DevOps. Default: ${getDefaultOrganization()}.`),
-      project: z.string().describe("Proyecto de Azure DevOps."),
-      repo_name: z.string().describe("Nombre del repositorio que contiene el YAML."),
-      branch: z.string().describe("Rama donde existe el YAML a registrar."),
-      pat: z.string().describe("Personal Access Token con permisos para crear pipelines."),
-      yaml_path: z.string().optional().describe("Ruta del YAML dentro del repositorio. Si no llega, se calcula con el patron estandar."),
-      pipeline_name: z.string().optional().describe("Nombre visible del pipeline. Si no llega, se deriva del nombre del archivo."),
-      pipeline_folder: z.string().optional().describe("Carpeta destino del pipeline en Azure DevOps. Default: \\."),
-    },
-    handler: async ({
-      organization,
-      project,
-      repo_name,
-      branch,
-      pat,
-      yaml_path,
-      pipeline_name,
-      pipeline_folder,
-    }: {
-      organization?: string;
-      project: string;
-      repo_name: string;
-      branch: string;
-      pat: string;
-      yaml_path?: string;
-      pipeline_name?: string;
-      pipeline_folder?: string;
-    }) => {
-      ensureKebabCase(repo_name, "repositorio");
-      const result = await azureDevOps.registerPipeline(
-        buildConnection(organization, project, pat),
-        repo_name,
-        branch,
-        yaml_path,
-        pipeline_name,
-        pipeline_folder,
-      );
-      return ok(result);
-    },
-  },
-
   {
     name: "use_case_repo_selfservice",
     description: "Caso de negocio para publicar values.yaml de Helm del componente en self-service-devops para develop, QA, staging y main.",
