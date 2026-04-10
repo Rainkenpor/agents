@@ -23,9 +23,9 @@ Organizacion por defecto: grupodistelsa. Se puede sobreescribir con el campo "or
 
 ## Use Cases disponibles
 
-### use_case_repo_selfservice
-Genera archivos values.yaml de Helm para Kubernetes y los publica en el repositorio "self-service-devops"
-(o el repo destino indicado) en las cuatro ramas estandar (develop, QA, staging, main).
+### use_case_create_selfservice_repository
+Crea el repositorio self-service-devops con archivos values.yaml de Helm para Kubernetes,
+publicados en las cuatro ramas estandar (develop, QA, staging, main).
 - Crea el repo destino si no existe.
 - Hace push directo en repos nuevos; usa rama auxiliar + PR en repos existentes.
 - Prerequisito: el repositorio de la aplicacion (repo_name) ya debe existir en Azure DevOps.

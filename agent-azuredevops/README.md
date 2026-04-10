@@ -14,9 +14,9 @@ Migracion del software actual a un MCP orientado a codigo con arquitectura hexag
 
 ## Casos de uso expuestos como tools
 
-- `use_case_repo_selfservice`
-- `use_case_repo_pipeline_trigger`
-- `use_case_repo_pipeline_plus`
+- `use_case_create_selfservice_repository`
+- `use_case_register_pipelines`
+- `use_case_create_pipeline_yaml`
 
 ## Tools auxiliares
 
@@ -24,7 +24,6 @@ Migracion del software actual a un MCP orientado a codigo con arquitectura hexag
 - `azdo_check_repository`
 - `azdo_create_repository`
 - `azdo_register_pipeline`
-- `render_helm_values`
 
 ## Regla aplicada
 

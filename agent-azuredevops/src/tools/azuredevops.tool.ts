@@ -10,7 +10,7 @@ import { AzureDevOpsHttpAdapter } from "../infrastructure/adapters/azuredevops/A
 import { HelmValuesGenerator } from "../domain/services/HelmValuesGenerator.js";
 import { CreatePipelineYamlUseCase } from "../application/use-cases/CreatePipelineYamlUseCase.js";
 import { RegisterPipelinesUseCase } from "../application/use-cases/RegisterPipelinesUseCase.js";
-import { GenerateHelmValuesUseCase } from "../application/use-cases/GenerateHelmValuesUseCase.js";
+import { CreateSelfServiceRepositoryUseCase } from "../application/use-cases/CreateSelfServiceRepositoryUseCase.js";
 import { AuditRepoNamingUseCase } from "../application/use-cases/AuditRepoNamingUseCase.js";
 import { ensureKebabCase, normalizeOrganization } from "../shared/validation.js";
 import { getDefaultOrganization } from "../shared/config.js";
@@ -19,7 +19,7 @@ import type { AzureConnection } from "../domain/types.js";
 // ─── Singletons ───────────────────────────────────────────────────────────────
 const azureDevOps = new AzureDevOpsHttpAdapter();
 const helmValuesGenerator = new HelmValuesGenerator();
-const generateHelmValuesUseCase = new GenerateHelmValuesUseCase(azureDevOps, helmValuesGenerator);
+const createSelfServiceRepositoryUseCase = new CreateSelfServiceRepositoryUseCase(azureDevOps, helmValuesGenerator);
 const registerPipelinesUseCase = new RegisterPipelinesUseCase(azureDevOps);
 const createPipelineYamlUseCase = new CreatePipelineYamlUseCase(azureDevOps);
 const auditRepoNamingUseCase = new AuditRepoNamingUseCase(azureDevOps);
@@ -40,7 +40,7 @@ function buildConnection(organization: string | undefined, project: string, pat:
 
 export const azureDevOpsTools: ToolDefinition[] = [
   {
-    name: "use_case_generate_helm_values",
+    name: "use_case_create_selfservice_repository",
     description: [
       "Genera y publica archivos values.yaml de Helm para Kubernetes en el repositorio self-service-devops (o el repo destino indicado).",
       "Crea un values.yaml por rama estandar (develop, QA, staging, main) bajo la ruta /<repo_name>/helm/values.yaml.",
@@ -95,7 +95,7 @@ export const azureDevOpsTools: ToolDefinition[] = [
     }) => {
       ensureKebabCase(repo_name, "repositorio");
       ensureKebabCase(target_repo, "repositorio");
-      const result = await generateHelmValuesUseCase.execute({
+      const result = await createSelfServiceRepositoryUseCase.execute({
         connection: buildConnection(organization, project, pat),
         repoName: repo_name,
         imageProject: image_project,

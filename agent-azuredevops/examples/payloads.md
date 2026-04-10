@@ -1,23 +1,6 @@
 ﻿# Payload Examples
 
-## `render_helm_values`
-
-```json
-{
-  "app_repo_name": "mi-api",
-  "image_project": "plataforma",
-  "replica_count": 1,
-  "has_service": true,
-  "service_port": 8080,
-  "has_ingress": true,
-  "hosting": "AWS",
-  "web_host": "mi-api.distelsa.net",
-  "alb_name": "distelsa-internal",
-  "branch": "develop"
-}
-```
-
-## `use_case_repo_selfservice`
+## `use_case_create_selfservice_repository`
 
 ```json
 {

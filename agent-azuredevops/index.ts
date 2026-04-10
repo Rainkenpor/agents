@@ -21,7 +21,7 @@ Servidor MCP para Azure DevOps organizado con arquitectura hexagonal.
 - No existe almacenamiento de PAT en el servidor.
 - Usa las tools "use_case_*" para flujos completos de negocio con efectos en repos, ramas, PRs o pipelines.
 - Usa las tools "azdo_*" para operaciones puntuales de infraestructura o verificaciones previas.
-- Usa "render_helm_values" como utilidad de soporte, no como caso de uso de flow.
+- Usa "use_case_create_selfservice_repository" para crear el repositorio self-service con valores Helm.
 - Antes de crear recursos, valida el acceso con "azdo_validate_pat" si no conoces el alcance del PAT.
 - "use_case_repo_pipeline_plus" solo soporta combinaciones ambiente/tecnologia con plantilla CI/CD real.
 `.trim();
@@ -66,11 +66,11 @@ export const azureDevopsMcp: McpModule = {
 		//{ name: "azdo_check_repository",          description: "Consulta si un repositorio existe y devuelve su metadata principal." },
 		//{ name: "azdo_create_repository",         description: "Crea un repositorio si no existe y lo deja listo para pushes." },
 		//// ── Helm
-		//{ name: "render_helm_values",             description: "Genera un values.yaml sin escribir en Azure DevOps." },
+		//{ name: "use_case_create_selfservice_repository", description: "Crea el repositorio self-service-devops con valores Helm para las ramas estandar." },
 		//// ── Pipelines
 		//{ name: "azdo_register_pipeline",         description: "Registra en Azure DevOps un YAML que ya existe en el repo." },
 		// ── Casos de uso
-		{ name: "use_case_repo_selfservice",      description: "Genera y publica valores Helm en self-service-devops para las ramas estandar." },
+		{ name: "use_case_create_selfservice_repository", description: "Crea el repositorio self-service-devops con valores Helm para las ramas estandar." },
 		{ name: "use_case_repo_pipeline_trigger", description: "Registra los pipelines estandar cuando los YAML ya existen en el repositorio." },
 		{ name: "use_case_repo_pipeline_plus",    description: "Genera un YAML CI/CD, lo sube a una rama de trabajo y crea PR hacia la rama objetivo." },
 	],
