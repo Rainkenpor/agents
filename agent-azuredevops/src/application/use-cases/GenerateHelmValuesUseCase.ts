@@ -4,7 +4,7 @@ import { HelmValuesGenerator } from "../../domain/services/HelmValuesGenerator.j
 
 const BRANCHES = ["develop", "QA", "staging", "main"] as const;
 
-export interface RunRepoSelfServiceUseCaseInput {
+export interface GenerateHelmValuesUseCaseInput {
   connection: AzureConnection;
   repoName: string;
   imageProject: string;
@@ -18,13 +18,13 @@ export interface RunRepoSelfServiceUseCaseInput {
   targetRepo: string;
 }
 
-export class RunRepoSelfServiceUseCase {
+export class GenerateHelmValuesUseCase {
   constructor(
     private readonly azureDevOps: AzureDevOpsPort,
     private readonly helmValuesGenerator: HelmValuesGenerator = new HelmValuesGenerator(),
   ) {}
 
-  async execute(input: RunRepoSelfServiceUseCaseInput) {
+  async execute(input: GenerateHelmValuesUseCaseInput) {
     await this.azureDevOps.validatePat(input.connection.organization, input.connection.pat);
 
     const appRepo = await this.azureDevOps.getRepository(input.connection, input.repoName);

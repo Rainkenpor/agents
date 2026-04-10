@@ -2,17 +2,17 @@ import type { AzureConnection } from "../../domain/types.js";
 import type { AzureDevOpsPort } from "../../domain/ports/AzureDevOpsPort.js";
 import { hasPipelineTemplate, PipelineYamlGenerator, type PipelineYamlInput } from "../../domain/services/PipelineYamlGenerator.js";
 
-export interface RunRepoPipelinePlusUseCaseInput extends PipelineYamlInput {
+export interface CreatePipelineYamlUseCaseInput extends PipelineYamlInput {
   connection: AzureConnection;
 }
 
-export class RunRepoPipelinePlusUseCase {
+export class CreatePipelineYamlUseCase {
   constructor(
     private readonly azureDevOps: AzureDevOpsPort,
     private readonly pipelineYamlGenerator: PipelineYamlGenerator = new PipelineYamlGenerator(),
   ) {}
 
-  async execute(input: RunRepoPipelinePlusUseCaseInput) {
+  async execute(input: CreatePipelineYamlUseCaseInput) {
     await this.azureDevOps.validatePat(input.connection.organization, input.connection.pat);
 
     if (!hasPipelineTemplate(input.ambiente, input.tecnologia)) {

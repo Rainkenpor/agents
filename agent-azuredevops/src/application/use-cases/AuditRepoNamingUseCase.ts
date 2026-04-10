@@ -4,16 +4,16 @@ import type {
   ListProjectsResult,
 } from "../../domain/ports/AzureDevOpsPort.js";
 
-export interface ListInvalidProjectsUseCaseInput {
+export interface AuditRepoNamingUseCaseInput {
   connection: AzureConnection;
 }
 
 const VALID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
-export class ListInvalidProjectsUseCase {
+export class AuditRepoNamingUseCase {
   constructor(private readonly azureDevOps: AzureDevOpsPort) {}
 
-  async execute(input: ListInvalidProjectsUseCaseInput) {
+  async execute(input: AuditRepoNamingUseCaseInput) {
     await this.azureDevOps.validatePat(
       input.connection.organization,
       input.connection.pat,

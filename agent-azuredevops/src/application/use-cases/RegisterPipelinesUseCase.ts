@@ -4,7 +4,7 @@ import { PipelineYamlGenerator } from "../../domain/services/PipelineYamlGenerat
 
 const BRANCHES = ["develop", "QA", "staging", "main"] as const;
 
-export class RunRepoPipelineTriggerUseCase {
+export class RegisterPipelinesUseCase {
   constructor(
     private readonly azureDevOps: AzureDevOpsPort,
     private readonly pipelineYamlGenerator: PipelineYamlGenerator = new PipelineYamlGenerator(),

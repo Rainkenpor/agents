@@ -8,10 +8,10 @@ import type { ToolDefinition } from "../types.js";
 import { ok } from "../types.js";
 import { AzureDevOpsHttpAdapter } from "../infrastructure/adapters/azuredevops/AzureDevOpsHttpAdapter.js";
 import { HelmValuesGenerator } from "../domain/services/HelmValuesGenerator.js";
-import { RunRepoPipelinePlusUseCase } from "../application/use-cases/RunRepoPipelinePlusUseCase.js";
-import { RunRepoPipelineTriggerUseCase } from "../application/use-cases/RunRepoPipelineTriggerUseCase.js";
-import { RunRepoSelfServiceUseCase } from "../application/use-cases/RunRepoSelfServiceUseCase.js";
-import { ListInvalidProjectsUseCase } from "../application/use-cases/ListInvalidProjectsUseCase.js";
+import { CreatePipelineYamlUseCase } from "../application/use-cases/CreatePipelineYamlUseCase.js";
+import { RegisterPipelinesUseCase } from "../application/use-cases/RegisterPipelinesUseCase.js";
+import { GenerateHelmValuesUseCase } from "../application/use-cases/GenerateHelmValuesUseCase.js";
+import { AuditRepoNamingUseCase } from "../application/use-cases/AuditRepoNamingUseCase.js";
 import { ensureKebabCase, normalizeOrganization } from "../shared/validation.js";
 import { getDefaultOrganization } from "../shared/config.js";
 import type { AzureConnection } from "../domain/types.js";
@@ -19,10 +19,10 @@ import type { AzureConnection } from "../domain/types.js";
 // ─── Singletons ───────────────────────────────────────────────────────────────
 const azureDevOps = new AzureDevOpsHttpAdapter();
 const helmValuesGenerator = new HelmValuesGenerator();
-const runRepoSelfServiceUseCase = new RunRepoSelfServiceUseCase(azureDevOps, helmValuesGenerator);
-const runRepoPipelineTriggerUseCase = new RunRepoPipelineTriggerUseCase(azureDevOps);
-const runRepoPipelinePlusUseCase = new RunRepoPipelinePlusUseCase(azureDevOps);
-const listInvalidProjectsUseCase = new ListInvalidProjectsUseCase(azureDevOps);
+const generateHelmValuesUseCase = new GenerateHelmValuesUseCase(azureDevOps, helmValuesGenerator);
+const registerPipelinesUseCase = new RegisterPipelinesUseCase(azureDevOps);
+const createPipelineYamlUseCase = new CreatePipelineYamlUseCase(azureDevOps);
+const auditRepoNamingUseCase = new AuditRepoNamingUseCase(azureDevOps);
 
 function buildConnection(organization: string | undefined, project: string, pat: string): AzureConnection {
   return {
@@ -40,7 +40,7 @@ function buildConnection(organization: string | undefined, project: string, pat:
 
 export const azureDevOpsTools: ToolDefinition[] = [
   {
-    name: "use_case_repo_selfservice",
+    name: "use_case_generate_helm_values",
     description: [
       "Genera y publica archivos values.yaml de Helm para Kubernetes en el repositorio self-service-devops (o el repo destino indicado).",
       "Crea un values.yaml por rama estandar (develop, QA, staging, main) bajo la ruta /<repo_name>/helm/values.yaml.",
@@ -95,7 +95,7 @@ export const azureDevOpsTools: ToolDefinition[] = [
     }) => {
       ensureKebabCase(repo_name, "repositorio");
       ensureKebabCase(target_repo, "repositorio");
-      const result = await runRepoSelfServiceUseCase.execute({
+      const result = await generateHelmValuesUseCase.execute({
         connection: buildConnection(organization, project, pat),
         repoName: repo_name,
         imageProject: image_project,
@@ -113,7 +113,7 @@ export const azureDevOpsTools: ToolDefinition[] = [
   },
 
   {
-    name: "use_case_repo_pipeline_trigger",
+    name: "use_case_register_pipelines",
     description: [
       "Registra los cuatro pipelines CI/CD estandar en Azure DevOps para un repositorio dado.",
       "Los pipelines corresponden a las ramas develop, QA, staging y main.",
@@ -131,13 +131,13 @@ export const azureDevOpsTools: ToolDefinition[] = [
     },
     handler: async ({ pat, project, repo_name, organization }: { pat: string; project: string; repo_name: string; organization?: string }) => {
       ensureKebabCase(repo_name, "repositorio");
-      const result = await runRepoPipelineTriggerUseCase.execute(buildConnection(organization, project, pat), repo_name);
+      const result = await registerPipelinesUseCase.execute(buildConnection(organization, project, pat), repo_name);
       return ok(result);
     },
   },
 
   {
-    name: "use_case_repo_pipeline_plus",
+    name: "use_case_create_pipeline_yaml",
     description: [
       "Genera un archivo YAML de pipeline CI/CD a partir de plantillas estandar, lo sube a una rama de trabajo y abre un Pull Request hacia la rama destino.",
       "El YAML generado configura dos stages: CI (usando plantilla del repo cicd-blueprints) y CD (GitOps hacia K8s via self-service-devops).",
@@ -183,7 +183,7 @@ export const azureDevOpsTools: ToolDefinition[] = [
       csproj?: string;
     }) => {
       ensureKebabCase(repo_name, "repositorio");
-      const result = await runRepoPipelinePlusUseCase.execute({
+      const result = await createPipelineYamlUseCase.execute({
         connection: buildConnection(organization, project, pat),
         repositorio: repo_name,
         rama: branch,
@@ -198,7 +198,7 @@ export const azureDevOpsTools: ToolDefinition[] = [
   },
 
   {
-    name: "use_case_list_invalid_projects",
+    name: "use_case_audit_repo_naming",
     description: [
       "Lista todos los repositorios de la organización de Azure DevOps cuyo nombre NO sigue la convencion kebab-case (solo minusculas, numeros y guiones, sin espacios ni mayusculas).",
       "Recorre todos los proyectos visibles de la organizacion y devuelve unicamente los repos con nombre incorrecto, agrupados por proyecto.",
@@ -211,7 +211,7 @@ export const azureDevOpsTools: ToolDefinition[] = [
       organization: z.string().optional().describe(`Nombre de la organizacion en Azure DevOps. Si se omite, se usa '${getDefaultOrganization()}'.`),
     },
     handler: async ({ pat, organization }: { pat: string; organization?: string }) => {
-      const result = await listInvalidProjectsUseCase.execute({
+      const result = await auditRepoNamingUseCase.execute({
         connection: buildConnection(organization, "", pat),
       });
       return ok(result);
