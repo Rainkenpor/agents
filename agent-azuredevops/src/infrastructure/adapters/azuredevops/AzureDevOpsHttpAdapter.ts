@@ -1,9 +1,12 @@
 import type { AzureConnection } from "../../../domain/types.js";
-import type { AzureDevOpsPort } from "../../../domain/ports/AzureDevOpsPort.js";
-import { createBranch, createPullRequest, ensureRepository, fileExists, getRepository, pushFile, validatePat } from "../../azuredevops/repositories.js";
+import type { AzureDevOpsPort, ListProjectsResult } from "../../../domain/ports/AzureDevOpsPort.js";
+import { createBranch, createPullRequest, ensureRepository, fileExists, getRepository, pushFile, validatePat,listRepos } from "../../azuredevops/repositories.js";
 import { registerPipeline } from "../../azuredevops/pipelines.js";
 
 export class AzureDevOpsHttpAdapter implements AzureDevOpsPort {
+  listRepos(connection: AzureConnection): Promise<ListProjectsResult | null> {
+    return listRepos(connection);
+  }
   validatePat(organization: string, pat: string) {
     return validatePat(organization, pat);
   }

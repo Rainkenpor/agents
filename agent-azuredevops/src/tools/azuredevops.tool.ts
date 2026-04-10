@@ -11,6 +11,7 @@ import { HelmValuesGenerator } from "../domain/services/HelmValuesGenerator.js";
 import { RunRepoPipelinePlusUseCase } from "../application/use-cases/RunRepoPipelinePlusUseCase.js";
 import { RunRepoPipelineTriggerUseCase } from "../application/use-cases/RunRepoPipelineTriggerUseCase.js";
 import { RunRepoSelfServiceUseCase } from "../application/use-cases/RunRepoSelfServiceUseCase.js";
+import { ListInvalidProjectsUseCase } from "../application/use-cases/ListInvalidProjectsUseCase.js";
 import { ensureKebabCase, normalizeOrganization } from "../shared/validation.js";
 import { getDefaultOrganization } from "../shared/config.js";
 import type { AzureConnection } from "../domain/types.js";
@@ -21,6 +22,7 @@ const helmValuesGenerator = new HelmValuesGenerator();
 const runRepoSelfServiceUseCase = new RunRepoSelfServiceUseCase(azureDevOps, helmValuesGenerator);
 const runRepoPipelineTriggerUseCase = new RunRepoPipelineTriggerUseCase(azureDevOps);
 const runRepoPipelinePlusUseCase = new RunRepoPipelinePlusUseCase(azureDevOps);
+const listInvalidProjectsUseCase = new ListInvalidProjectsUseCase(azureDevOps);
 
 function buildConnection(organization: string | undefined, project: string, pat: string): AzureConnection {
   return {
@@ -39,21 +41,28 @@ function buildConnection(organization: string | undefined, project: string, pat:
 export const azureDevOpsTools: ToolDefinition[] = [
   {
     name: "use_case_repo_selfservice",
-    description: "Caso de negocio para publicar values.yaml de Helm del componente en self-service-devops para develop, QA, staging y main.",
+    description: [
+      "Genera y publica archivos values.yaml de Helm para Kubernetes en el repositorio self-service-devops (o el repo destino indicado).",
+      "Crea un values.yaml por rama estandar (develop, QA, staging, main) bajo la ruta /<repo_name>/helm/values.yaml.",
+      "Si el repositorio destino no existe, lo crea automaticamente.",
+      "En repos nuevos hace push directo; en repos existentes crea una rama auxiliar '<branch>-pipeline' y abre un PR.",
+      "Prerequisito: el repositorio de la aplicacion (repo_name) debe existir previamente en el proyecto de Azure DevOps.",
+      "PAT requerido: Code (Read & Write) sobre el repo origen y el repo destino.",
+    ].join(" "),
     inputSchema: {
-      pat: z.string().describe("Personal Access Token con permisos sobre el repo origen y el repo destino."),
-      project: z.string().describe("Proyecto de Azure DevOps donde viven los repositorios."),
-      repo_name: z.string().describe("Repositorio de la aplicacion en kebab-case."),
-      image_project: z.string().describe("Proyecto o namespace de imagenes usado en Helm."),
-      organization: z.string().optional().describe(`Organizacion de Azure DevOps. Default: ${getDefaultOrganization()}.`),
-      replica_count: z.number().int().positive().default(1).describe("Cantidad inicial de replicas."),
-      has_service: z.boolean().describe("Indica si la app necesita Service."),
-      service_port: z.number().int().positive().optional().describe("Puerto del Service. Si no llega, se usa 80."),
-      has_ingress: z.boolean().describe("Indica si se debe publicar Ingress."),
-      hosting: z.enum(["On-Premise", "AWS"]).optional().describe("Tipo de hosting para ajustar Ingress."),
-      web_host: z.string().optional().describe("Hostname del Ingress."),
-      alb_name: z.string().optional().describe("Nombre del ALB cuando hosting es AWS."),
-      target_repo: z.string().default("self-service-devops").describe("Repositorio destino donde se escriben los values."),
+      pat: z.string().describe("Personal Access Token de Azure DevOps con permisos Code (Read & Write) sobre el repo origen y el repo destino."),
+      project: z.string().describe("Nombre exacto del proyecto de Azure DevOps donde viven ambos repositorios."),
+      repo_name: z.string().describe("Nombre del repositorio de la aplicacion en kebab-case (ej: 'mi-servicio'). Debe existir en el proyecto."),
+      image_project: z.string().describe("Proyecto o namespace de imagenes de contenedor usado en el campo image.repository del Helm chart (ej: 'acr-distelsa/backend')."),
+      organization: z.string().optional().describe(`Nombre de la organizacion en Azure DevOps. Si se omite, se usa '${getDefaultOrganization()}'.`),
+      replica_count: z.number().int().positive().default(1).describe("Numero inicial de replicas del Deployment de Kubernetes. Default: 1."),
+      has_service: z.boolean().describe("Si es true, el values.yaml incluye la seccion Service habilitada. Requerido para que la app sea accesible dentro del cluster."),
+      service_port: z.number().int().positive().optional().describe("Puerto TCP expuesto por el Service de Kubernetes. Si se omite, se usa 80."),
+      has_ingress: z.boolean().describe("Si es true, el values.yaml incluye la seccion Ingress habilitada para exponer la app al exterior."),
+      hosting: z.enum(["On-Premise", "AWS"]).optional().describe("Tipo de infraestructura. 'On-Premise' usa ingress class 'nginx'; 'AWS' usa 'alb' con anotaciones de AWS Load Balancer Controller."),
+      web_host: z.string().optional().describe("Hostname del Ingress (ej: 'mi-app.empresa.com'). Si se omite, se genera con 'example.local' como placeholder."),
+      alb_name: z.string().optional().describe("Nombre del grupo ALB compartido (anotacion alb.ingress.kubernetes.io/group.name). Solo aplica cuando hosting es 'AWS'. Default: 'shared-alb'."),
+      target_repo: z.string().default("self-service-devops").describe("Repositorio destino donde se escriben los values.yaml. Default: 'self-service-devops'."),
     },
     handler: async ({
       pat,
@@ -105,12 +114,20 @@ export const azureDevOpsTools: ToolDefinition[] = [
 
   {
     name: "use_case_repo_pipeline_trigger",
-    description: "Caso de negocio para registrar los cuatro pipelines estandar una vez que sus YAML ya existen en el repositorio.",
+    description: [
+      "Registra los cuatro pipelines CI/CD estandar en Azure DevOps para un repositorio dado.",
+      "Los pipelines corresponden a las ramas develop, QA, staging y main.",
+      "Cada pipeline apunta al YAML en la ruta 'pipelines/<prefijo>-cicd-<repo>.yaml' de su rama (dev, qa, stg, main).",
+      "Verifica que los cuatro archivos YAML existan antes de registrar; si falta alguno, falla indicando cuales.",
+      "Es idempotente: si un pipeline ya estaba registrado, lo reporta como 'already_exists' sin modificarlo.",
+      "Prerequisito: los cuatro archivos YAML de pipeline deben existir en sus ramas. Usa use_case_repo_pipeline_plus para generarlos.",
+      "PAT requerido: Code (Read) y Build (Read & Execute).",
+    ].join(" "),
     inputSchema: {
-      pat: z.string().describe("Personal Access Token con permisos para leer el repo y crear pipelines."),
-      project: z.string().describe("Proyecto de Azure DevOps."),
-      repo_name: z.string().describe("Repositorio objetivo en kebab-case."),
-      organization: z.string().optional().describe(`Organizacion de Azure DevOps. Default: ${getDefaultOrganization()}.`),
+      pat: z.string().describe("Personal Access Token de Azure DevOps con permisos Code (Read) y Build (Read & Execute)."),
+      project: z.string().describe("Nombre exacto del proyecto de Azure DevOps."),
+      repo_name: z.string().describe("Nombre del repositorio objetivo en kebab-case. Los cuatro archivos YAML deben existir en sus ramas correspondientes."),
+      organization: z.string().optional().describe(`Nombre de la organizacion en Azure DevOps. Si se omite, se usa '${getDefaultOrganization()}'.`),
     },
     handler: async ({ pat, project, repo_name, organization }: { pat: string; project: string; repo_name: string; organization?: string }) => {
       ensureKebabCase(repo_name, "repositorio");
@@ -121,18 +138,26 @@ export const azureDevOpsTools: ToolDefinition[] = [
 
   {
     name: "use_case_repo_pipeline_plus",
-    description: "Caso de negocio para generar un YAML CI/CD soportado, subirlo a una rama de trabajo y abrir un PR hacia develop, QA, staging o main.",
+    description: [
+      "Genera un archivo YAML de pipeline CI/CD a partir de plantillas estandar, lo sube a una rama de trabajo y abre un Pull Request hacia la rama destino.",
+      "El YAML generado configura dos stages: CI (usando plantilla del repo cicd-blueprints) y CD (GitOps hacia K8s via self-service-devops).",
+      "La rama de trabajo se llama '<branch>-pipeline-create' y el archivo se guarda en 'pipelines/<prefijo>-cicd-<repo>.yaml'.",
+      "Es idempotente: si el archivo ya existe en la rama destino, no hace push ni crea PR y devuelve pipelineAlreadyExists=true.",
+      "Solo funciona para combinaciones de ambiente+tecnologia con plantilla real: nodejs/vite/netcore/react en onpremise o cloud.",
+      "Para angular/netframework/python/flutter no hay plantilla; usa use_case_repo_pipeline_trigger con un YAML propio.",
+      "PAT requerido: Code (Read & Write) para ramas, pushes y PRs.",
+    ].join(" "),
     inputSchema: {
-      pat: z.string().describe("Personal Access Token con permisos para crear ramas, pushes y PRs."),
-      organization: z.string().optional().describe(`Organizacion de Azure DevOps. Default: ${getDefaultOrganization()}.`),
-      project: z.string().describe("Proyecto de Azure DevOps."),
-      repo_name: z.string().describe("Repositorio objetivo en kebab-case."),
-      branch: z.enum(["develop", "QA", "staging", "main"]).describe("Rama destino donde debe terminar el YAML."),
-      ambiente: z.enum(["onpremise", "cloud"]).describe("Tipo de despliegue soportado por las plantillas."),
-      tecnologia: z.enum(["nodejs", "netcore", "vite", "react", "angular", "netframework", "python", "flutter"]).describe("Stack de la aplicacion. Solo algunas combinaciones tienen plantilla real."),
-      sonar_key: z.string().describe("Project key de SonarQube."),
-      sonar_name: z.string().describe("Nombre visible del proyecto en SonarQube."),
-      csproj: z.string().optional().describe("Ruta del .csproj cuando la tecnologia es netcore."),
+      pat: z.string().describe("Personal Access Token de Azure DevOps con permisos Code (Read & Write) para crear ramas, hacer push y abrir PRs."),
+      organization: z.string().optional().describe(`Nombre de la organizacion en Azure DevOps. Si se omite, se usa '${getDefaultOrganization()}'.`),
+      project: z.string().describe("Nombre exacto del proyecto de Azure DevOps donde vive el repositorio."),
+      repo_name: z.string().describe("Nombre del repositorio objetivo en kebab-case. El repositorio debe existir previamente en el proyecto."),
+      branch: z.enum(["develop", "QA", "staging", "main"]).describe("Rama destino donde debe quedar el YAML de pipeline una vez mergeado el PR. La rama debe existir en el repositorio."),
+      ambiente: z.enum(["onpremise", "cloud"]).describe("Tipo de infraestructura: 'onpremise' (Kubernetes on-premise con Nginx Ingress) o 'cloud' (AWS EKS con ALB)."),
+      tecnologia: z.enum(["nodejs", "netcore", "vite", "react", "angular", "netframework", "python", "flutter"]).describe("Stack tecnologico de la aplicacion. Combinaciones con plantilla real: nodejs, vite, netcore, react (en ambos ambientes). Las demas fallan con error explicativo."),
+      sonar_key: z.string().describe("Project key del proyecto en SonarQube (se obtiene del area de QA). Se inyecta como variable 'sonarQubeProjectKey' en el pipeline."),
+      sonar_name: z.string().describe("Nombre visible del proyecto en SonarQube (se muestra en el dashboard). Se inyecta como variable 'sonarQubeProjectName'."),
+      csproj: z.string().optional().describe("Ruta relativa al archivo .csproj de publicacion (ej: 'src/MiApp/MiApp.csproj'). Requerido cuando tecnologia es 'netcore'."),
     },
     handler: async ({
       pat,
@@ -167,6 +192,27 @@ export const azureDevOpsTools: ToolDefinition[] = [
         sonarKey: sonar_key,
         sonarName: sonar_name,
         csproj,
+      });
+      return ok(result);
+    },
+  },
+
+  {
+    name: "use_case_list_invalid_projects",
+    description: [
+      "Lista todos los repositorios de la organización de Azure DevOps cuyo nombre NO sigue la convencion kebab-case (solo minusculas, numeros y guiones, sin espacios ni mayusculas).",
+      "Recorre todos los proyectos visibles de la organizacion y devuelve unicamente los repos con nombre incorrecto, agrupados por proyecto.",
+      "Util para auditar y detectar repositorios mal nombrados antes de onboardearlos al pipeline CI/CD.",
+      "No requiere un proyecto especifico: opera a nivel de organizacion completa.",
+      "PAT requerido: solo lectura de proyectos y repositorios (Project Read + Code Read).",
+    ].join(" "),
+    inputSchema: {
+      pat: z.string().describe("Personal Access Token de Azure DevOps con permisos de lectura sobre proyectos y repositorios (Project Read + Code Read)."),
+      organization: z.string().optional().describe(`Nombre de la organizacion en Azure DevOps. Si se omite, se usa '${getDefaultOrganization()}'.`),
+    },
+    handler: async ({ pat, organization }: { pat: string; organization?: string }) => {
+      const result = await listInvalidProjectsUseCase.execute({
+        connection: buildConnection(organization, "", pat),
       });
       return ok(result);
     },

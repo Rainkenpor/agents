@@ -20,6 +20,7 @@ export function createAzureContext(connection: AzureConnection) {
     headers,
     encodedOrganization,
     encodedProject,
+    organizationPath:`/${encodedOrganization}/_apis/projects`,
     repositoriesPath: `/${encodedOrganization}/${encodedProject}/_apis/git/repositories`,
     pipelinesPath: `/${encodedOrganization}/${encodedProject}/_apis/pipelines`,
     webProjectBase: `https://dev.azure.com/${encodedOrganization}/${encodedProject}`,

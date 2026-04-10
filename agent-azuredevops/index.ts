@@ -51,7 +51,7 @@ async function handler(req: IncomingMessage, res: ServerResponse, parsedBody: un
 // ─── Módulo exportado ─────────────────────────────────────────────────────────
 
 export const azureDevopsMcp: McpModule = {
-	slug: "agent-azuredevops",
+	slug: "azuredevops",
 	displayName: "Agent Azure DevOps",
 	credentials: [
 		{

@@ -28,7 +28,7 @@ export function httpsRequest<T>(options: https.RequestOptions, body?: string): P
         let message = `HTTP ${res.statusCode}`;
         try {
           const parsed = JSON.parse(data) as { message?: string };
-          if (parsed.message) message = parsed.message;
+          if (parsed.message) message = `HTTP ${res.statusCode}: ${parsed.message}`;
         } catch {}
 
         reject(new Error(message));
@@ -66,7 +66,7 @@ export function httpsGetOrNull<T>(options: https.RequestOptions): Promise<T | nu
         let message = `HTTP ${res.statusCode}`;
         try {
           const parsed = JSON.parse(data) as { message?: string };
-          if (parsed.message) message = parsed.message;
+          if (parsed.message) message = `HTTP ${res.statusCode}: ${parsed.message}`;
         } catch {}
 
         reject(new Error(message));

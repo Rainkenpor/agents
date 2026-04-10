@@ -36,14 +36,30 @@ export class RunRepoPipelinePlusUseCase {
       csproj: input.csproj,
     });
 
-    await this.azureDevOps.createBranch(input.connection, input.repositorio, input.rama, generated.workingBranch);
-
+    // Verificar antes de crear la rama de trabajo para mantener la operacion idempotente:
+    // si el archivo ya existe en la rama destino, no hay nada que subir ni mergear.
     const pipelineAlreadyExists = await this.azureDevOps.fileExists(
       input.connection,
       input.repositorio,
       input.rama,
       `/${generated.pipelineRelativePath}`,
     );
+
+    if (pipelineAlreadyExists) {
+      return {
+        organization: input.connection.organization,
+        project: input.connection.project,
+        repository: repo.name,
+        branch: input.rama,
+        workingBranch: generated.workingBranch,
+        pipelineRelativePath: generated.pipelineRelativePath,
+        pipelineAlreadyExists,
+        push: null,
+        pullRequest: null,
+      };
+    }
+
+    await this.azureDevOps.createBranch(input.connection, input.repositorio, input.rama, generated.workingBranch);
 
     const push = await this.azureDevOps.pushFile(
       input.connection,
@@ -55,22 +71,20 @@ export class RunRepoPipelinePlusUseCase {
       true,
     );
 
-    const pullRequest = pipelineAlreadyExists
-      ? undefined
-      : await this.azureDevOps.createPullRequest(
-          input.connection,
-          input.repositorio,
-          generated.workingBranch,
-          input.rama,
-          `ci: add CI/CD pipeline for ${input.repositorio}`,
-          [
-            "Pipeline CI/CD generado automaticamente por Agent Azure DevOps MCP.",
-            "",
-            `- Rama origen: ${generated.workingBranch}`,
-            `- Rama destino: ${input.rama}`,
-            `- Archivo: ${generated.pipelineRelativePath}`,
-          ].join("\n"),
-        );
+    const pullRequest = await this.azureDevOps.createPullRequest(
+      input.connection,
+      input.repositorio,
+      generated.workingBranch,
+      input.rama,
+      `ci: add CI/CD pipeline for ${input.repositorio}`,
+      [
+        "Pipeline CI/CD generado automaticamente por Agent Azure DevOps MCP.",
+        "",
+        `- Rama origen: ${generated.workingBranch}`,
+        `- Rama destino: ${input.rama}`,
+        `- Archivo: ${generated.pipelineRelativePath}`,
+      ].join("\n"),
+    );
 
     return {
       organization: input.connection.organization,
