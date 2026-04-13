@@ -26,7 +26,12 @@ import {
 	removeWebhookSubscription,
 	listWebhookSubscriptions,
 	registerHookPersister,
+	registerWebhookFailureHandler,
 } from "./hooks.ts";
+import {
+	savePendingDelivery,
+	startRetryScheduler,
+} from "./hooks/webhook.retry.ts";
 import { envs } from "./util/envs.ts";
 import { db, initializeDatabase } from "./db/index.ts";
 import { sentHooks } from "./db/schema.ts";
@@ -58,7 +63,13 @@ async function onStartup(): Promise<void> {
 		});
 	});
 
-	// 3. Arrancar el monitor de repositorios Git
+	// 3. Registrar handler de fallos — guarda entregas fallidas para reintento
+	registerWebhookFailureHandler(savePendingDelivery);
+
+	// 4. Arrancar scheduler de reintentos — flush inmediato al inicio, luego cada 20 min
+	startRetryScheduler(envs.GIT_POLL_INTERVAL);
+
+	// 5. Arrancar el monitor de repositorios Git
 	startMonitor(envs.GIT_POLL_INTERVAL);
 }
 

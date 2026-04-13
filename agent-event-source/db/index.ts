@@ -60,11 +60,28 @@ export function initializeDatabase(): void {
       ON branches(repository_id);
     CREATE INDEX IF NOT EXISTS idx_branches_active
       ON branches(repository_id, is_active);
+    CREATE TABLE IF NOT EXISTS pending_deliveries (
+      id               TEXT PRIMARY KEY,
+      hook_name        TEXT NOT NULL,
+      payload          TEXT NOT NULL,
+      hook_timestamp   TEXT NOT NULL,
+      subscription_id  TEXT NOT NULL,
+      target_url       TEXT NOT NULL,
+      secret           TEXT,
+      events           TEXT NOT NULL,
+      failed_at        TEXT NOT NULL,
+      attempts         INTEGER NOT NULL DEFAULT 1,
+      last_attempt_at  TEXT,
+      next_retry_at    TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_sent_hooks_name
       ON sent_hooks(hook_name);
     CREATE INDEX IF NOT EXISTS idx_sent_hooks_repo
       ON sent_hooks(repository_id);
     CREATE INDEX IF NOT EXISTS idx_sent_hooks_sent
       ON sent_hooks(sent_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_pending_retry
+      ON pending_deliveries(next_retry_at);
   `);
 }

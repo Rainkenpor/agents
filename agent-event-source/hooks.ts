@@ -167,6 +167,25 @@ export function registerHookPersister(fn: HookPersistFn): void {
 	hookPersisters.push(fn);
 }
 
+// ─── Webhook Failure Handlers ─────────────────────────────────────────────────
+//
+// External modules register a failure handler to persist failed webhook
+// deliveries for later retry. Keeps hooks.ts free of direct DB imports.
+
+type WebhookFailureFn = (
+	sub: WebhookSubscription,
+	event: HookEvent,
+) => Promise<void>;
+const webhookFailureHandlers: WebhookFailureFn[] = [];
+
+/**
+ * Register a function called whenever a webhook delivery fails (network error
+ * or non-2xx response). Use this to persist the pending delivery for retry.
+ */
+export function registerWebhookFailureHandler(fn: WebhookFailureFn): void {
+	webhookFailureHandlers.push(fn);
+}
+
 // ─── Emit ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -202,7 +221,7 @@ export async function emit(name: string, payload: unknown): Promise<void> {
 	for (const sub of webhookSubscriptions.values()) {
 		if (sub.events.length === 0 || sub.events.includes(name)) {
 			deliverWebhook(sub, event).catch((err) =>
-				logger.info(`[hook] webhook ${sub.id} delivery failed: ${err}`),
+				logger.error(`[hook] webhook ${sub.id} unexpected error: ${err}`),
 			);
 		}
 	}
@@ -232,8 +251,31 @@ async function deliverWebhook(
 		headers["X-Hook-Signature"] = `sha256=${sig}`;
 	}
 
-	const response = await fetch(sub.url, { method: "POST", headers, body });
-	logger.info(`[hook] webhook ${sub.id} → ${sub.url} ${response.status}`);
+	let deliveryFailed = false;
+	try {
+		const response = await fetch(sub.url, { method: "POST", headers, body });
+		if (response.ok) {
+			logger.info(`[hook] webhook ${sub.id} → ${sub.url} ${response.status}`);
+		} else {
+			logger.warn(
+				`[hook] webhook ${sub.id} → ${sub.url} HTTP ${response.status} — queuing retry`,
+			);
+			deliveryFailed = true;
+		}
+	} catch (err) {
+		logger.warn(
+			`[hook] webhook ${sub.id} → ${sub.url} unreachable (${err}) — queuing retry`,
+		);
+		deliveryFailed = true;
+	}
+
+	if (deliveryFailed) {
+		for (const handler of webhookFailureHandlers) {
+			handler(sub, event).catch((err) =>
+				logger.error(`[hook] failure handler error for ${sub.id}: ${err}`),
+			);
+		}
+	}
 }
 
 // ─── SSE endpoint handler ─────────────────────────────────────────────────────

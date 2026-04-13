@@ -45,3 +45,33 @@ export const sentHooks = sqliteTable("sent_hooks", {
 	repositoryId: text("repository_id").references(() => repositories.id),
 	sentAt: text("sent_at").notNull(),
 });
+
+// ─── Pending Webhook Deliveries ───────────────────────────────────────────────
+//
+// Stores webhook deliveries that failed (network error or non-2xx response).
+// Rows are removed when delivery succeeds. Used by the retry scheduler.
+
+export const pendingDeliveries = sqliteTable("pending_deliveries", {
+	id: text("id").primaryKey(),
+	hookName: text("hook_name").notNull(),
+	/** JSON-serialized HookEvent payload */
+	payload: text("payload").notNull(),
+	/** ISO-8601 timestamp from the original HookEvent */
+	hookTimestamp: text("hook_timestamp").notNull(),
+	/** ID of the WebhookSubscription that failed */
+	subscriptionId: text("subscription_id").notNull(),
+	/** Target URL (denormalized — subscription may be gone on restart) */
+	targetUrl: text("target_url").notNull(),
+	/** Optional HMAC secret (denormalized for retry) */
+	secret: text("secret"),
+	/** JSON-serialized string[] of event filters from the subscription */
+	events: text("events").notNull(),
+	/** When the first failure was recorded */
+	failedAt: text("failed_at").notNull(),
+	/** Total delivery attempts so far (including the original failed one) */
+	attempts: integer("attempts").notNull().default(1),
+	/** ISO-8601 of the last attempted delivery */
+	lastAttemptAt: text("last_attempt_at"),
+	/** ISO-8601 — will not be retried before this time */
+	nextRetryAt: text("next_retry_at").notNull(),
+});

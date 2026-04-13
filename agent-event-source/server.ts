@@ -32,7 +32,12 @@ import {
 	removeWebhookSubscription,
 	listWebhookSubscriptions,
 	registerHookPersister,
+	registerWebhookFailureHandler,
 } from "./hooks.ts";
+import {
+	savePendingDelivery,
+	startRetryScheduler,
+} from "./hooks/webhook.retry.ts";
 import { envs } from "./util/envs.ts";
 import { db, initializeDatabase } from "./db/index.ts";
 import { sentHooks } from "./db/schema.ts";
@@ -201,7 +206,13 @@ registerHookPersister(async (name, payload) => {
 	});
 });
 
-// 3. Start git polling monitor
+// 3. Register webhook failure handler — stores failed deliveries for retry
+registerWebhookFailureHandler(savePendingDelivery);
+
+// 4. Start retry scheduler — flushes pending on startup, then every 20 min
+startRetryScheduler(envs.GIT_POLL_INTERVAL);
+
+// 5. Start git polling monitor
 startMonitor(envs.GIT_POLL_INTERVAL);
 
 httpServer.listen(PORT, () => {
