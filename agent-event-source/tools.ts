@@ -16,7 +16,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ToolDefinition } from "./types";
 import { logger } from "./util/logger";
 // import { exampleTools } from "./tools/example.tool";
-import { gitTools } from "./git/git.tool";
+import { gitTools } from "./tools/git.tool";
 
 const RESPONSE_PREVIEW_LENGTH = 200;
 

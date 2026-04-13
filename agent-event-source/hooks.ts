@@ -23,7 +23,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { HookDefinition } from "./types";
 import { logger } from "./util/logger";
 // import { exampleHooks } from "./hooks/example.hook";
-import { gitHooks } from "./git/git.hook";
+import { gitHooks } from "./hooks/git.hook";
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
 

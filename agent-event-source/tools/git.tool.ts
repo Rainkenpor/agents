@@ -22,7 +22,7 @@ import {
 	listBranches,
 	removeLocalClone,
 	monitorRepositories,
-} from "./git.monitor.ts";
+} from "../git/git.monitor.ts";
 
 export const gitTools: ToolDefinition[] = [
 	// ── git_add_repository ─────────────────────────────────────────────────────
