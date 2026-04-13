@@ -35,7 +35,19 @@ async function handler(
 	res: ServerResponse,
 	parsedBody: unknown | Record<string, unknown>,
 ): Promise<void> {
-	try {
+  let rpcMethod: string | undefined;
+	if (parsedBody && typeof parsedBody === "object") {
+		try {
+			rpcMethod = (parsedBody as { method?: string }).method;
+		} catch {
+			// body no es JSON (p.ej. GET de SSE)
+		}
+	}
+
+  // isDiscovery indica si se desea solo listar las tools existentes
+	const isDiscovery = rpcMethod === "tools/list" || rpcMethod === "initialize";
+	
+  try {
 		const mcpServer = new McpServer({ name: "mcp-template", version: "1.0.0" });
 		initializeTools(mcpServer);
 		const transport = new StreamableHTTPServerTransport({
