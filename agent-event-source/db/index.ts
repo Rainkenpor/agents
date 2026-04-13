@@ -5,13 +5,13 @@ import { drizzle } from "drizzle-orm/bun-sqlite";
 import { mkdirSync, existsSync } from "fs";
 import * as schema from "./schema.ts";
 
-const DATA_DIR = "data";
+const DATA_DIR = process.env.DATA_DIR || "./data";
 
 if (!existsSync(DATA_DIR)) {
 	mkdirSync(DATA_DIR, { recursive: true });
 }
 
-const sqlite = new Database(`${DATA_DIR}/git-monitor.db`, { create: true });
+const sqlite = new Database(`${DATA_DIR}/agent-event-source.db`, { create: true });
 
 // WAL mode for better concurrent read performance
 sqlite.exec("PRAGMA journal_mode = WAL;");
@@ -27,7 +27,7 @@ export function initializeDatabase(): void {
 	sqlite.exec(`
     CREATE TABLE IF NOT EXISTS repositories (
       id          TEXT PRIMARY KEY,
-      url         TEXT NOT NULL UNIQUE,
+      url         TEXT NOT NULL,
       name        TEXT NOT NULL,
       is_active   INTEGER NOT NULL DEFAULT 1,
       created_at  TEXT NOT NULL,

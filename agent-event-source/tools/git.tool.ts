@@ -52,7 +52,7 @@ export const gitTools: ToolDefinition[] = [
 			const existing = await db
 				.select()
 				.from(repositories)
-				.where(eq(repositories.url, url));
+				.where(and(eq(repositories.url, url), eq(repositories.isActive, true)));
 			if (existing.length > 0 && existing[0].isActive) {
 				throw new Error(`Repository already monitored: ${url}`);
 			}

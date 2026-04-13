@@ -1,8 +1,16 @@
 import { Database } from 'bun:sqlite'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
 import * as schema from './schema.ts'
+import { existsSync, mkdirSync } from 'node:fs';
 
-const sqlite = new Database(process.env.DB_PATH || './data.db')
+const DATA_DIR = process.env.DATA_DIR || "./data";
+
+if (!existsSync(DATA_DIR)) {
+  mkdirSync(DATA_DIR, { recursive: true });
+}
+
+const sqlite = new Database(`${DATA_DIR}/agent-document.db`, { create: true });
+
 sqlite.exec('PRAGMA journal_mode = WAL;')
 sqlite.exec('PRAGMA foreign_keys = ON;')
 
