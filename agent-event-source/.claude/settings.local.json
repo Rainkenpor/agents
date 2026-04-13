@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python -c \"from fastmcp import FastMCP; print\\(''FastMCP OK''\\)\")",
+      "Bash(python -c \":*)",
+      "Skill(update-config)",
+      "Bash(bun install:*)",
+      "Bash(ATLASSIAN_BASE_URL=https://test.atlassian.net ATLASSIAN_EMAIL=test@test.com timeout 3 bun run server.ts)",
+      "Read(//c/Users/WO199/OneDrive/Documents/Proyectos/agent-mcp//**)",
+      "Read(//c/Users/WO199/OneDrive/Documents/Proyectos/agent-mcp/**)",
+      "Bash(wc -l *.ts)",
+      "Bash(bun run:*)",
+      "Bash(kill %1)",
+      "Bash(ls data/)",
+      "Bash(bun -e ':*)"
+    ]
+  }
+}
