@@ -4,6 +4,7 @@
 import z from "zod";
 import { ok } from "../types";
 import type { ToolDefinition } from "../types";
+import { emit } from "../hooks";
 
 export const exampleTools: ToolDefinition[] = [
 	{
@@ -12,8 +13,10 @@ export const exampleTools: ToolDefinition[] = [
 		inputSchema: {
 			id: z.string().describe("The unique identifier of the item"),
 		},
-		handler: async ({ id }: { id: string }) =>
-			ok(`Fetched item with ID: ${id}`),
+		handler: async ({ id }: { id: string }) => {
+			await emit("item.fetched", { id });
+			return ok(`Fetched item with ID: ${id}`);
+		},
 	},
 	{
 		name: "example_create_item",
@@ -28,9 +31,10 @@ export const exampleTools: ToolDefinition[] = [
 		handler: async ({
 			name,
 			description,
-		}: { name: string; description?: string }) =>
-			ok(
-				`Created item with name: ${name}${description ? ` and description: ${description}` : ""}`,
-			),
+		}: { name: string; description?: string }) => {
+			const id = crypto.randomUUID();
+			await emit("item.created", { id, name, description });
+			return ok({ id, name, description });
+		},
 	},
 ];

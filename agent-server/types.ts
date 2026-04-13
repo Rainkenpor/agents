@@ -18,6 +18,13 @@ export interface ToolMeta {
 	description: string;
 }
 
+// ─── Metadata de un hook (solo nombre + descripción, sin payloadSchema) ───────
+
+export interface HookMeta {
+	name: string;
+	description: string;
+}
+
 // ─── Contrato público que cada MCP debe exportar desde su index.ts ────────────
 
 export interface McpModule {
@@ -35,6 +42,19 @@ export interface McpModule {
 	 * Usada exclusivamente para logging en startup.
 	 */
 	tools: ToolMeta[];
+
+	/**
+	 * Lista de hooks que este MCP puede emitir.
+	 * Usada para logging en startup y para exponer el catálogo vía GET /hooks.
+	 */
+	hooks?: HookMeta[];
+
+	/**
+	 * Handler para las rutas de hooks del módulo: GET/POST /hooks/*, SSE stream.
+	 * El servidor central lo monta en `/<slug>/hooks*`.
+	 * Si se omite, el módulo no expone endpoints de hooks.
+	 */
+	hooksHandler?: (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 
 	/** Variables de entorno que este MCP necesita */
 	credentials: McpCredential[];

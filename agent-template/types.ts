@@ -51,6 +51,24 @@ export const ok = (data: unknown) => ({
 
 import type { ZodRawShape } from "zod";
 
+// ─── Hook Registry type ───────────────────────────────────────────────────────
+
+/**
+ * Declarative hook definition used by the Hook Registry.
+ * Each hook file exports a `HookDefinition[]`; `hooks.ts` collects them all.
+ *
+ * Naming convention for `name`: "<resource>.<past-tense-action>"
+ *   Examples: "item.created", "item.updated", "item.deleted"
+ */
+export interface HookDefinition {
+	/** Unique dot-notation event name (e.g. "item.created") */
+	name: string;
+	/** Human-readable description of when and why this hook fires */
+	description: string;
+	/** Zod schema documenting the shape of the event payload */
+	payloadSchema: ZodRawShape;
+}
+
 /**
  * Declarative tool definition used by the Registry.
  * Each tool file exports a `ToolDefinition[]`; `tools.ts` collects and
