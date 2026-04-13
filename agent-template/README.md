@@ -9,7 +9,8 @@ Servidor MCP ([Model Context Protocol](https://modelcontextprotocol.io)) sobre *
 ## Arquitectura
 
 ```
-server.ts          →  HTTP listener, arranca el servidor y registra tools
+index.ts           →  Punto de conexión al servidor central (agent-server)
+server.ts          →  Servidor standalone independiente
 tools.ts           →  Registry central (Registry Pattern)
 tools/             →  Un archivo por dominio, cada uno exporta ToolDefinition[]
 types.ts           →  Interfaces compartidas: AppContext, AppHelpers, ToolDefinition, ok()
@@ -17,6 +18,13 @@ util/
   envs.ts          →  Variables de entorno (SERVER_BASE_URL, SERVER_PORT)
   logger.ts        →  Logger Winston (formato: YYYY-MM-DD HH:mm:ss [LEVEL]: mensaje)
 ```
+
+### index.ts vs server.ts
+
+| Archivo | Propósito | Cuándo usarlo |
+| -------- | --------- | ------------- |
+| **index.ts** | Exporta `McpModule` para integración en `agent-server`. El servidor central monta automáticamente `/<slug>/mcp` y `/<slug>/hooks/*` | Cuando tu MCP será registrado en el servidor centralizado |
+| **server.ts** | Servidor HTTP independiente que escucha en un puerto | Cuando necesitas un servidor standalone o ejecutar localmente sin el agent-server |
 
 ### Flujo de una request
 
@@ -68,11 +76,29 @@ Luego en [tools.ts](tools.ts) elimina la línea de import y el spread:
   ];
 ```
 
-### 4. Iniciar el servidor
+### 4. Ejecutar el servidor
 
+Tienes dos opciones:
+
+**Opción A — Servidor standalone (server.ts):**
 ```bash
 bun run server.ts
 ```
+
+**Opción B — Integración con agent-server (index.ts):**
+Registra tu módulo en `agent-server/registry.ts`:
+```typescript
+import { templateMcp } from "./modules/template/index.ts";
+
+export const registry: McpModule[] = [
+  templateMcp,
+  // ...otros módulos
+];
+```
+
+El agent-server montará automáticamente:
+- `POST /<slug>/mcp` → handler de index.ts
+- `GET /<slug>/hooks*` → hooksHandler de index.ts
 
 Salida esperada al arrancar:
 
