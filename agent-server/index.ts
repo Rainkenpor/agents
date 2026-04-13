@@ -25,8 +25,12 @@ validateEnvs(mcpModules);
 // ─── 3. Loguear MCPs y tools registrados ─────────────────────────────────────
 
 for (const mcp of mcpModules) {
-  logger.info(`[startup] ${mcp.displayName} → POST /${mcp.slug}/mcp  (${mcp.tools.length} tools)`);
+  logger.info(`[startup] ${mcp.displayName} → POST /${mcp.slug}/mcp  (${mcp.tools.length} tools) (${mcp.hooks?.length ?? 0} hooks)`);
 }
+
+
+
+// 
 
 // ─── 4. Crear servidor y manejar rutas ───────────────────────────────────────
 
@@ -80,6 +84,23 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       }
       return;
     }
+    if (mcp.hooks && path.startsWith(`/${mcp.slug}/hooks`)) {
+      if (mcp.hooksHandler) {
+        try {
+          await mcp.hooksHandler(req, res);
+        } catch (err) {
+          logger.error(`[${mcp.slug}] Hooks handler error: ${String(err)}`);
+          if (!res.headersSent) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: String(err) }));
+          }
+        }
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: "Hooks handler no implementado para este MCP" }));
+      }
+      return;
+    }
   }
 
   // 404
@@ -96,7 +117,10 @@ server.listen(PORT, () => {
   logger.info(`[server] Agent server corriendo en http://localhost:${PORT}`);
   logger.info(`[server] Endpoints disponibles:`);
   for (const mcp of mcpModules) {
-    logger.info(`  POST /${mcp.slug}/mcp  →  ${mcp.displayName}`);
+    logger.info(`  * /${mcp.slug}/mcp  →  ${mcp.displayName}`);
+    if (mcp.hooksHandler) {
+      logger.info(`  * /${mcp.slug}/hooks  →  Hooks de ${mcp.displayName}`);
+    }
   }
   logger.info(`[server] GET  /health        →  Estado del servidor`);
 });

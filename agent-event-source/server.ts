@@ -31,11 +31,15 @@ import {
 	addWebhookSubscription,
 	removeWebhookSubscription,
 	listWebhookSubscriptions,
+	registerHookPersister,
 } from "./hooks.ts";
 import { envs } from "./util/envs.ts";
+import { db, initializeDatabase } from "./db/index.ts";
+import { sentHooks } from "./db/schema.ts";
+import { startMonitor } from "./git/git.monitor.ts";
 
 const DEFAULT_BASE_URL = (envs.BASE_URL ?? "").replace(/\/$/, "");
-const PORT = Number(envs.PORT ?? 3000);
+const PORT = Number(envs.PORT ?? 4000);
 
 // ─── Body reader ─────────────────────────────────────────────────────────────
 
@@ -175,16 +179,42 @@ const httpServer = createServer(
 	},
 );
 
+// ─── Bootstrap ────────────────────────────────────────────────────────────────
+
+// 1. Create SQLite tables (idempotent)
+initializeDatabase();
+
+// 2. Register hook persister — stores every emitted hook in sent_hooks table
+registerHookPersister(async (name, payload) => {
+	const repositoryId =
+		(payload as Record<string, unknown> | null)?.repository &&
+		typeof (payload as Record<string, { id?: string }>).repository === "object"
+			? ((payload as Record<string, { id?: string }>).repository.id ?? null)
+			: null;
+
+	await db.insert(sentHooks).values({
+		id: crypto.randomUUID(),
+		hookName: name,
+		payload: JSON.stringify(payload),
+		repositoryId,
+		sentAt: new Date().toISOString(),
+	});
+});
+
+// 3. Start git polling monitor
+startMonitor(envs.GIT_POLL_INTERVAL);
+
 httpServer.listen(PORT, () => {
 	console.log(`✓ MCP server  → http://localhost:${PORT}/mcp`);
 	console.log(`✓ Hooks API   → http://localhost:${PORT}/hooks`);
 	console.log(`  BASE_URL: ${DEFAULT_BASE_URL || "(use mcp-base-url header)"}`);
+	console.log(`  Git poll:  every ${envs.GIT_POLL_INTERVAL} minute(s)`);
 	console.log("  Tools:");
 	for (const tool of registryTool) {
-		console.log(`    • ${tool.name.padEnd(25, " ")} — ${tool.description}`);
+		console.log(`    • ${tool.name.padEnd(28, " ")} — ${tool.description.slice(0, 60)}`);
 	}
 	console.log("  Hooks:");
 	for (const hook of registryHook) {
-		console.log(`    • ${hook.name.padEnd(25, " ")} — ${hook.description}`);
+		console.log(`    • ${hook.name.padEnd(28, " ")} — ${hook.description}`);
 	}
 });

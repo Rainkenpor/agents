@@ -7,7 +7,8 @@
     "agent-document",
     "agent-jira",
     "agent-playwright",
-    "agent-template"
+    "agent-template",
+    "agent-hook"
   ],
   "scripts": {
     "start": "bun run --filter agent-server start"

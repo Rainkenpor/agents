@@ -3,6 +3,7 @@ import { jiraMcp } from "../agent-jira/index.ts";
 import { documentMcp } from "../agent-document/index.ts";
 import { playwrightMcp } from "../agent-playwright/index.ts";
 import { azureDevopsMcp } from "../agent-azuredevops/index.ts";
+import { eventSourceMcp } from "../agent-event-source/index.ts";
 
 /**
  * Lista de todos los MCPs registrados en el servidor central.
@@ -11,4 +12,10 @@ import { azureDevopsMcp } from "../agent-azuredevops/index.ts";
  *   1. Crear su index.ts exportando un McpModule
  *   2. Importarlo aquí y agregarlo al array
  */
-export const mcpModules: McpModule[] = [jiraMcp, documentMcp, playwrightMcp,azureDevopsMcp];
+export const mcpModules: McpModule[] = [
+	jiraMcp,
+	documentMcp,
+	playwrightMcp,
+	azureDevopsMcp,
+	eventSourceMcp,
+];
