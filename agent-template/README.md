@@ -182,3 +182,123 @@ Cualquier otra ruta devuelve `404 { "error": "Not Found. Use /mcp" }`.
 - Un archivo `*.tool.ts` por dominio en `tools/`.
 - Todos los handlers devuelven `ok(data)` de [types.ts](types.ts).
 - Documentar cada parámetro con `z.string().describe("...")`.
+
+---
+
+## Integrar _workspace (archivos y repositorios)
+
+El módulo `_workspace` proporciona dos servicios compartidos que cualquier MCP puede usar:
+
+| Servicio | Qué hace |
+|----------|----------|
+| `FilesService` | Leer, escribir, borrar y mover archivos con historial automático |
+| `RepositoryService` | Clonar, editar, hacer commit/push/pull y cerrar repositorios git identificados por UUID |
+
+Los repositorios se almacenan en carpetas con UUID (`data/repos/<uuid>/`) en lugar de por nombre, por lo que múltiples MCPs pueden trabajar sobre el mismo repositorio con **distintas ramas** sin colisiones.
+
+### Paso 1 — Importar los servicios en tu MCP
+
+```typescript
+// tools/mi-dominio.tool.ts
+import { FilesService, RepositoryService } from "../../_workspace/index.ts";
+
+// Instanciar una sola vez y compartir entre todas las tools del módulo
+const files = new FilesService();
+const repos  = new RepositoryService();
+```
+
+### Paso 2 — Usar FilesService
+
+```typescript
+// Leer un archivo (incluye historial del path)
+const { content, history } = files.readFile("/ruta/absoluta/al/archivo.txt", "mi-mcp");
+
+// Escribir (crea directorios padres automáticamente)
+files.writeFile("/ruta/output.json", JSON.stringify(data), {
+  message: "generado por mi-tool",
+  actor: "mi-mcp",
+});
+
+// Borrar
+files.deleteFile("/ruta/old.txt", { actor: "mi-mcp" });
+
+// Mover / renombrar
+files.move("/ruta/a.txt", "/ruta/b.txt");
+
+// Crear directorio
+files.createDirectory("/ruta/nueva-carpeta");
+
+// Listar directorio (dirs con "/" al final)
+const entries = files.listDirectory("/ruta");
+
+// Consultar historial de un archivo
+const history = files.getHistory("/ruta/output.json");
+```
+
+### Paso 3 — Usar RepositoryService
+
+```typescript
+// Clonar (reutiliza si ya existe el mismo url+branch)
+const entry = await repos.clone(
+  "https://github.com/org/repo.git",
+  "feature/my-branch",
+  { label: "mi proyecto" },
+);
+// entry.id   → UUID (nombre de la carpeta en data/repos/)
+// entry.path → ruta absoluta al working tree
+
+// Operaciones sobre archivos del repo
+repos.writeFile(entry.id, "src/nuevo.ts", "export const x = 1;");
+const content = repos.readFile(entry.id, "src/nuevo.ts");
+await repos.deleteFile(entry.id, "src/viejo.ts");
+await repos.move(entry.id, "src/a.ts", "src/b.ts");
+repos.createDirectory(entry.id, "src/nuevo-modulo");
+const ls = repos.listDirectory(entry.id, "src");
+
+// Git
+const status = await repos.status(entry.id);
+const log    = await repos.log(entry.id, 5);
+await repos.commit(entry.id, "feat: cambios nuevos");
+await repos.push(entry.id);
+await repos.pull(entry.id);
+
+// Cerrar (borra carpeta del disco y registro)
+repos.close(entry.id);
+
+// Listar todos los repos registrados
+const all = repos.listRepos();
+```
+
+### Ejemplo completo — tool que clona y hace commit
+
+```typescript
+export const repoTools: ToolDefinition[] = [
+  {
+    name: "repo_clone",
+    description: "Clona un repositorio git en una rama específica",
+    inputSchema: {
+      url:    z.string().describe("URL remota del repositorio"),
+      branch: z.string().describe("Rama a clonar"),
+    },
+    handler: async ({ url, branch }) => {
+      const entry = await repos.clone(url, branch);
+      return ok({ id: entry.id, path: entry.path });
+    },
+  },
+  {
+    name: "repo_commit_push",
+    description: "Hace commit de todos los cambios y push al origen",
+    inputSchema: {
+      repoId:  z.string().describe("ID del repositorio (devuelto por repo_clone)"),
+      message: z.string().describe("Mensaje de commit"),
+    },
+    handler: async ({ repoId, message }) => {
+      await repos.commit(repoId, message);
+      await repos.push(repoId);
+      return ok({ ok: true });
+    },
+  },
+];
+```
+
+> Para documentación completa consulta [`../_workspace/README.md`](../_workspace/README.md).

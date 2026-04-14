@@ -6,7 +6,9 @@
       "Bash(python -c \":*)",
       "Skill(update-config)",
       "Bash(bun install:*)",
-      "Bash(ATLASSIAN_BASE_URL=https://test.atlassian.net ATLASSIAN_EMAIL=test@test.com timeout 3 bun run server.ts)"
+      "Bash(ATLASSIAN_BASE_URL=https://test.atlassian.net ATLASSIAN_EMAIL=test@test.com timeout 3 bun run server.ts)",
+      "mcp__agent-manager__mcp__clarify__list_projects",
+      "mcp__agent-manager__mcp__clarify__search_sections"
     ]
   }
 }

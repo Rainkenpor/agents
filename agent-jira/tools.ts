@@ -33,11 +33,16 @@ function storageToPlain(storage: string): string {
 }
 
 /** Extrae la lista de secciones (H1–H6) de un storage XHTML */
-function extractSections(storage: string): Array<{ level: number; title: string }> {
+function extractSections(
+	storage: string,
+): Array<{ level: number; title: string }> {
 	const sections: Array<{ level: number; title: string }> = [];
 	const re = /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi;
 	for (const m of storage.matchAll(re)) {
-		sections.push({ level: Number.parseInt(m[1]), title: storageToPlain(m[2]) });
+		sections.push({
+			level: Number.parseInt(m[1]),
+			title: storageToPlain(m[2]),
+		});
 	}
 	return sections;
 }
@@ -88,7 +93,12 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 		{
 			jql: z.string().describe("Consulta JQL"),
 			max_results: z.number().int().default(50),
-			next_page_token: z.string().optional().describe("Token de paginación devuelto por la respuesta anterior (cursor-based)"),
+			next_page_token: z
+				.string()
+				.optional()
+				.describe(
+					"Token de paginación devuelto por la respuesta anterior (cursor-based)",
+				),
 			fields: z.string().optional().describe("Campos separados por coma"),
 		},
 		async ({ jql, max_results, next_page_token, fields }) => {
@@ -1283,7 +1293,9 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 			depth: z
 				.enum(["children", "all"])
 				.default("children")
-				.describe("children: sólo hijas directas; all: todos los descendientes"),
+				.describe(
+					"children: sólo hijas directas; all: todos los descendientes",
+				),
 			limit: z.number().int().default(50),
 			start: z.number().int().default(0),
 		},
@@ -1327,8 +1339,7 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 		async ({ page_id, page_title }) => {
 			let id = page_id;
 			if (!id) {
-				if (!page_title)
-					throw new Error("Proporciona page_id o page_title.");
+				if (!page_title) throw new Error("Proporciona page_id o page_title.");
 				const spaceKey = POC_SPACE_KEY;
 				if (!spaceKey)
 					throw new Error(
@@ -1381,8 +1392,7 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 			let storage: string;
 
 			if (!id) {
-				if (!page_title)
-					throw new Error("Proporciona page_id o page_title.");
+				if (!page_title) throw new Error("Proporciona page_id o page_title.");
 				const spaceKey = POC_SPACE_KEY;
 				if (!spaceKey)
 					throw new Error(
@@ -1430,9 +1440,7 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 			parent_id: z
 				.string()
 				.optional()
-				.describe(
-					"ID de la página padre. Si se omite usa la raíz del POC.",
-				),
+				.describe("ID de la página padre. Si se omite usa la raíz del POC."),
 			representation: z
 				.string()
 				.default("storage")
@@ -1500,9 +1508,7 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 			page_id: z.string().describe("ID de la página"),
 			new_content: z
 				.string()
-				.describe(
-					"Contenido a agregar al final en formato storage (XHTML)",
-				),
+				.describe("Contenido a agregar al final en formato storage (XHTML)"),
 			section_title: z
 				.string()
 				.optional()
@@ -1578,12 +1584,14 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 		"Realiza una solicitud directa a la API de Atlassian (para endpoints no cubiertos)",
 		{
 			method: z.string().describe("GET, POST, PUT, DELETE, PATCH"),
-			path: z.string().describe(
-				"Path de la API. Para api=jira usa el path relativo al prefijo /rest/api/3/, ej. 'issue' o 'search/jql'. " +
-				"Para api=agile usa relativo a /rest/agile/1.0/, ej. 'board'. " +
-				"Para api=confluence usa relativo a /wiki/rest/api/, ej. 'content'. " +
-				"Para api=raw usa el path completo, ej. '/rest/api/3/issue'.",
-			),
+			path: z
+				.string()
+				.describe(
+					"Path de la API. Para api=jira usa el path relativo al prefijo /rest/api/3/, ej. 'issue' o 'search/jql'. " +
+						"Para api=agile usa relativo a /rest/agile/1.0/, ej. 'board'. " +
+						"Para api=confluence usa relativo a /wiki/rest/api/, ej. 'content'. " +
+						"Para api=raw usa el path completo, ej. '/rest/api/3/issue'.",
+				),
 			api: z.string().default("jira").describe("jira, agile, confluence, raw"),
 			body: z.string().optional().describe("JSON string del body"),
 			params: z.string().optional().describe("JSON string de query params"),
