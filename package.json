@@ -9,11 +9,14 @@
     "agent-playwright",
     "agent-template",
     "agent-azuredevops",
-    "agent-event-source"
+    "agent-event-source",
+    "agent-test",
   ],
   "scripts": {
     "start": "bun run --filter agent-server start"
   },
-  "dependencies": {},
+  "dependencies": {
+    "winston": "^3.19.0"
+  },
   "devDependencies": {}
 }

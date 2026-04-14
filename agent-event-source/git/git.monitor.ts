@@ -14,9 +14,14 @@ import { existsSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+const DATA_DIR = process.env.DATA_DIR || "./data";
+
+if (!existsSync(DATA_DIR)) {
+	mkdirSync(DATA_DIR, { recursive: true });
+}
 
 /** Root directory for local mirror clones, relative to cwd */
-export const REPOS_DIR = join(process.cwd(), "data", "repos");
+export const REPOS_DIR = join(DATA_DIR, "repos");
 
 /** Separator used in git --format strings (ASCII Unit Separator, very rare in text) */
 const SEP = "\x1f";
@@ -154,10 +159,7 @@ export async function monitorRepositories(
 
 	try {
 		const condition = targetRepoId
-			? and(
-					eq(repositories.isActive, true),
-					eq(repositories.id, targetRepoId),
-				)
+			? and(eq(repositories.isActive, true), eq(repositories.id, targetRepoId))
 			: eq(repositories.isActive, true);
 
 		const repos = await db.select().from(repositories).where(condition);

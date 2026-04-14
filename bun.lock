@@ -4,6 +4,9 @@
   "workspaces": {
     "": {
       "name": "agents-1",
+      "dependencies": {
+        "winston": "^3.19.0",
+      },
     },
     "agent-azuredevops": {
       "name": "agent-azuredevops-mcp",
