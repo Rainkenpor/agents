@@ -1,0 +1,23 @@
+﻿{
+  "name": "agent-azuredevops-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.2.8",
+  "scripts": {
+    "dev": "bun --watch src/server.ts",
+    "start": "bun src/server.ts",
+    "start:http": "bun src/http-server.ts",
+    "check": "tsc --noEmit",
+    "build": "bun build ./src/server.ts --outdir dist --target bun"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.28.0",
+    "winston": "^3.19.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.3"
+  }
+}
