@@ -791,9 +791,11 @@ export class InternalAgentService implements IAgentService {
 					);
 
 					const result = await executeToolCall(
+						() => new InternalAgentService(),
 						toolCall.function.name,
 						toolArgs,
 						basePath,
+						originalParams,
 					);
 
 					agentLogger.info(
@@ -888,9 +890,11 @@ export class InternalAgentService implements IAgentService {
 				);
 
 				const result = await executeToolCall(
+					() => new InternalAgentService(),
 					toolCall.function.name,
 					toolArgs,
 					basePath,
+					originalParams,
 				);
 
 				yield `<<${id}>>$${result.slice(0, 500)}<<\\${id}>>`;

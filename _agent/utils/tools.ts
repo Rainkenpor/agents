@@ -279,6 +279,24 @@ export function buildToolDefinitions(allowedTools?: Set<string>): Tool[] {
 				},
 			},
 		},
+		{
+			type: "function",
+			function: {
+				name: "spawn_subagent",
+				description:
+					"Spawn a specialised sub-agent to complete a focused documentation task. The sub-agent runs in the same project directory with its own instructions and tool access.",
+				parameters: {
+					type: "object",
+					properties: {
+						query: {
+							type: "string",
+							description: "Detailed task for the sub-agent.",
+						},
+					},
+					required: ["agent_type", "query"],
+				},
+			},
+		},
 	];
 
 	if (allowedTools && allowedTools.size > 0) {
@@ -294,9 +312,11 @@ export function buildToolDefinitions(allowedTools?: Set<string>): Tool[] {
 
 /** Execute a single tool call and return a string result */
 export async function executeToolCall(
+	newAgentService: () => any,
 	toolName: string,
 	args: Record<string, unknown>,
 	basePath: string,
+	originalParams: IAgentServiceExecute,
 ): Promise<string> {
 	try {
 		switch (toolName) {
@@ -380,6 +400,15 @@ export async function executeToolCall(
 				return matches
 					.map((m) => m.replace(basePath + nodePath.sep, ""))
 					.join("\n");
+			}
+
+			case "spawn_subagent": {
+				const subService = newAgentService();
+				const subResult = await subService.executeAgent({
+					...originalParams,
+					query: args.query as string,
+				});
+				return `Sub-agent: completed.\n${typeof subResult === "string" ? subResult : ""}`;
 			}
 
 			default:
