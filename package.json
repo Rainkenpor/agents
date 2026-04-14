@@ -10,10 +10,10 @@
     "agent-template",
     "agent-azuredevops",
     "agent-event-source",
-    "agent-test",
+    "agent-test"
   ],
   "scripts": {
-    "start": "bun run --filter agent-server start"
+    "start": "bun run --filter agent-server --elide-lines 0 start"
   },
   "dependencies": {
     "winston": "^3.19.0"

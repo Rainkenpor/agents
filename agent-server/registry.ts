@@ -4,6 +4,7 @@ import { documentMcp } from "../agent-document/index.ts";
 import { playwrightMcp } from "../agent-playwright/index.ts";
 import { azureDevopsMcp } from "../agent-azuredevops/index.ts";
 import { eventSourceMcp } from "../agent-event-source/index.ts";
+import { unitTestMCP } from "../agent-unitTest/index.ts";
 
 /**
  * Lista de todos los MCPs registrados en el servidor central.
@@ -18,4 +19,5 @@ export const mcpModules: McpModule[] = [
 	playwrightMcp,
 	azureDevopsMcp,
 	eventSourceMcp,
+	unitTestMCP,
 ];

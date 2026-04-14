@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Crear directorio de logs si no existe
-const logsDir = join(__dirname, "../../../logs");
+const logsDir = join(__dirname, "../../logs");
 if (!existsSync(logsDir)) {
 	mkdirSync(logsDir, { recursive: true });
 }
