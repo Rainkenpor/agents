@@ -89,13 +89,6 @@ interface CompletionMessage {
 	finish_reason: string;
 }
 
-interface TokenResponse {
-	id_token: string;
-	access_token: string;
-	refresh_token: string;
-	expires_in?: number;
-}
-
 export interface IdTokenClaims {
 	chatgpt_account_id?: string;
 	organizations?: Array<{ id: string }>;
@@ -129,6 +122,42 @@ const TOTAL_CHARS_PRUNE_THRESHOLD = 150_000;
 
 export class InternalAgentService implements IAgentService {
 	private agentType = "";
+	private toolRegistryCallbacks: Map<
+		string,
+		((
+			args: Record<string, unknown>,
+		) => string | void | Promise<string | void>)[]
+	> = new Map();
+
+	constructor(
+		toolRegistryCallbacks?: Map<
+			string,
+			((
+				args: Record<string, unknown>,
+			) => string | void | Promise<string | void>)[]
+		>,
+	) {
+		this.toolRegistryCallbacks = toolRegistryCallbacks || new Map();
+	}
+
+	// Registrar funciones al momento de llamar tools
+	registerToolsCallback(
+		key:
+			| "read_file"
+			| "list_directory"
+			| "write_file"
+			| "search_files"
+			| "grep_search"
+			| "spawn_subagent",
+		callback: (
+			args: Record<string, unknown>,
+		) => string | void | Promise<string | void>,
+	) {
+		this.toolRegistryCallbacks.set(key, [
+			...(this.toolRegistryCallbacks.get(key) ?? []),
+			callback,
+		]);
+	}
 
 	/** Parse AGENT_MODEL string into provider + model name */
 	private parseModel(agentModel: string): ParsedModel {
@@ -790,13 +819,25 @@ export class InternalAgentService implements IAgentService {
 						`[${this.agentType}] → ${toolCall.function.name}(${JSON.stringify(toolArgs).slice(0, 200)})`,
 					);
 
-					const result = await executeToolCall(
-						() => new InternalAgentService(),
+					let result = "";
+					result = await executeToolCall(
+						() => new InternalAgentService(this.toolRegistryCallbacks),
 						toolCall.function.name,
 						toolArgs,
 						basePath,
 						originalParams,
 					);
+
+					// Execute registered tools callbacks
+					const callbacks = this.toolRegistryCallbacks.get(
+						toolCall.function.name,
+					);
+					if (callbacks) {
+						for (const callback of callbacks) {
+							const cbResult = await callback(toolArgs);
+							if (cbResult) result += cbResult;
+						}
+					}
 
 					agentLogger.info(
 						`[${this.agentType}] ← ${result.slice(0, 200).replace(/\n/g, "\\n").replace(/\r/g, "\\r")}`,
@@ -889,13 +930,25 @@ export class InternalAgentService implements IAgentService {
 					`[${this.agentType}] → ${toolCall.function.name}(${JSON.stringify(toolArgs).slice(0, 200)})`,
 				);
 
-				const result = await executeToolCall(
-					() => new InternalAgentService(),
+				let result = "";
+				result = await executeToolCall(
+					() => new InternalAgentService(this.toolRegistryCallbacks),
 					toolCall.function.name,
 					toolArgs,
 					basePath,
 					originalParams,
 				);
+
+				// Execute registered tools callbacks
+				const callbacks = this.toolRegistryCallbacks.get(
+					toolCall.function.name,
+				);
+				if (callbacks) {
+					for (const callback of callbacks) {
+						const cbResult = await callback(toolArgs);
+						if (cbResult) result += cbResult;
+					}
+				}
 
 				yield `<<${id}>>$${result.slice(0, 500)}<<\\${id}>>`;
 
@@ -914,10 +967,10 @@ export class InternalAgentService implements IAgentService {
 		yield `[${this.agentType}] Reached maximum iterations.`;
 	}
 
-	// ── Public API ────────────────────────────────────────────────────────────
-
 	async executeAgent(params: IAgentServiceExecute): Promise<unknown> {
-		const { systemPrompt, allowedTools, dirPath, query } = params;
+		const { name, systemPrompt, allowedTools, dirPath, query } = params;
+
+		if (name) this.agentType = name;
 
 		const basePath = dirPath.startsWith(".")
 			? nodePath.join(process.cwd(), dirPath)
@@ -931,7 +984,7 @@ export class InternalAgentService implements IAgentService {
 		const parsed = this.parseModel(envs.AGENT_MODEL);
 		const config = this.buildRequestConfig(parsed);
 
-		const tools = buildToolDefinitions(allowedTools ?? undefined);
+		const tools = buildToolDefinitions(new Set(allowedTools ?? undefined));
 
 		// Build user message, embedding artifacts inline when present
 		const messages: MessageParam[] = [

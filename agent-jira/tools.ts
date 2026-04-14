@@ -88,17 +88,17 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 		{
 			jql: z.string().describe("Consulta JQL"),
 			max_results: z.number().int().default(50),
-			start_at: z.number().int().default(0),
+			next_page_token: z.string().optional().describe("Token de paginación devuelto por la respuesta anterior (cursor-based)"),
 			fields: z.string().optional().describe("Campos separados por coma"),
 		},
-		async ({ jql, max_results, start_at, fields }) => {
+		async ({ jql, max_results, next_page_token, fields }) => {
 			const payload: Record<string, unknown> = {
 				jql,
 				maxResults: max_results,
-				startAt: start_at,
 			};
+			if (next_page_token) payload.nextPageToken = next_page_token;
 			if (fields) payload.fields = fields.split(",").map((f) => f.trim());
-			return ok(await apiPost(jiraUrl("search"), payload));
+			return ok(await apiPost(jiraUrl("search/jql"), payload));
 		},
 	);
 
@@ -1578,25 +1578,39 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 		"Realiza una solicitud directa a la API de Atlassian (para endpoints no cubiertos)",
 		{
 			method: z.string().describe("GET, POST, PUT, DELETE, PATCH"),
-			path: z.string().describe("Path relativo, ej. /rest/api/3/issue"),
+			path: z.string().describe(
+				"Path de la API. Para api=jira usa el path relativo al prefijo /rest/api/3/, ej. 'issue' o 'search/jql'. " +
+				"Para api=agile usa relativo a /rest/agile/1.0/, ej. 'board'. " +
+				"Para api=confluence usa relativo a /wiki/rest/api/, ej. 'content'. " +
+				"Para api=raw usa el path completo, ej. '/rest/api/3/issue'.",
+			),
 			api: z.string().default("jira").describe("jira, agile, confluence, raw"),
 			body: z.string().optional().describe("JSON string del body"),
 			params: z.string().optional().describe("JSON string de query params"),
 		},
 		async ({ method, path, api, body: bodyStr, params: paramsStr }) => {
+			// Si el path ya contiene un prefijo de API conocido, usar rawUrl para evitar doble prefijo
+			const isFullPath =
+				path.startsWith("/rest/") ||
+				path.startsWith("/wiki/") ||
+				path.startsWith("http");
 			let base: string;
-			switch (api) {
-				case "agile":
-					base = agileUrl(path);
-					break;
-				case "confluence":
-					base = cfluUrl(path);
-					break;
-				case "raw":
-					base = rawUrl(path);
-					break;
-				default:
-					base = jiraUrl(path);
+			if (isFullPath) {
+				base = rawUrl(path);
+			} else {
+				switch (api) {
+					case "agile":
+						base = agileUrl(path);
+						break;
+					case "confluence":
+						base = cfluUrl(path);
+						break;
+					case "raw":
+						base = rawUrl(path);
+						break;
+					default:
+						base = jiraUrl(path);
+				}
 			}
 			const parsedParams: Record<string, unknown> = paramsStr
 				? JSON.parse(paramsStr)

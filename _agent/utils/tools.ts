@@ -2,6 +2,7 @@ import nodePath from "node:path";
 import fs from "node:fs";
 
 export interface IAgentServiceExecute {
+	name?: string;
 	dirPath: string;
 	systemPrompt: string;
 	allowedTools: Set<string>;
@@ -288,6 +289,11 @@ export function buildToolDefinitions(allowedTools?: Set<string>): Tool[] {
 				parameters: {
 					type: "object",
 					properties: {
+						name: {
+							type: "string",
+							description:
+								"Name/type of the sub-agent (e.g. 'test-doc-generator')",
+						},
 						query: {
 							type: "string",
 							description: "Detailed task for the sub-agent.",
@@ -404,8 +410,14 @@ export async function executeToolCall(
 
 			case "spawn_subagent": {
 				const subService = newAgentService();
+				// remover spawned sub-agent's tool access for security and to prevent infinite recursion
+				const allowedTools = [...originalParams.allowedTools].filter(
+					(t) => t !== "spawn_subagent",
+				);
 				const subResult = await subService.executeAgent({
 					...originalParams,
+					name: args.name as string | undefined,
+					allowedTools,
 					query: args.query as string,
 				});
 				return `Sub-agent: completed.\n${typeof subResult === "string" ? subResult : ""}`;

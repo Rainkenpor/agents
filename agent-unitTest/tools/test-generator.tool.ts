@@ -149,6 +149,34 @@ async function generateTestsWithAgent(
 ): Promise<void> {
 	const agent = new InternalAgentService();
 
+	// ── write_file callback: run vitest immediately after each test file is written ──
+	agent.registerToolsCallback(
+		"write_file",
+		async (args: Record<string, unknown>) => {
+			const filePath = args.path as string;
+
+			// Only validate test files
+			if (!filePath.includes(".test.") && !filePath.includes(".spec.")) {
+				return;
+			}
+
+			logger.info(`[test-generator] Auto-running vitest on: ${filePath}`);
+
+			// Resolve to an absolute path so vitest can locate the file
+			const absolutePath = nodePath.isAbsolute(filePath)
+				? filePath
+				: nodePath.join(repoPath, filePath);
+
+			const relativeToRepo = nodePath.relative(repoPath, absolutePath);
+			const { success, output } = runVitest(repoPath, relativeToRepo);
+
+			const status = success ? "✅ PASSED" : "❌ FAILED";
+			const truncated = output.slice(0, 3000);
+
+			return `\n\n--- VITEST RESULT [${status}] for ${filePath} ---\n${truncated}\n--- END VITEST RESULT ---\n\nIMPORTANT: Review the result above. If the test ${success ? "passed" : "failed"}, ${success ? "proceed to the next module." : "fix the errors in the test file before continuing."}`;
+		},
+	);
+
 	const systemPrompt = `You are an expert unit-test generation agent for TypeScript / JavaScript projects.
 
 ## Objective
@@ -178,22 +206,42 @@ automatically, so you do not need to create them separately.
 - From \`${testDirRelative}/foo.test.ts\` to \`src/foo.ts\` the relative path is
   \`../../src/foo\` — always compute the correct relative path.
 
+## Sub-agent strategy (REQUIRED)
+Use \`spawn_subagent\` to delegate the creation of each individual test file to a
+dedicated sub-agent.  Do NOT write test files yourself directly — always delegate.
+
+For every source module that needs tests:
+1. Identify the source file to test.
+2. Call \`spawn_subagent\` with a self-contained query that includes:
+   - The full path of the source file to test.
+   - The expected output path: \`${testDirRelative}/<module>.test.ts\`
+   - The vitest import conventions listed above.
+   - A request to read the source file and write a complete test file.
+3. After the sub-agent returns, the test file will be executed automatically by
+   vitest.  Review the VITEST RESULT block appended to the sub-agent response.
+4. If the test failed, spawn a new sub-agent with the error output to fix it.
+
 ## Workflow
 1. \`list_directory\` on the root to map the project structure.
 2. Read \`package.json\` to understand scripts and dependencies.
-3. Explore source directories (\`src/\`, \`lib/\`, or root \`.ts\` files).
-4. Read the key source files relevant to the branch commit message.
-5. Write one test file per source module.
-6. Summarise what was created.
+3. Identify source modules to test (focus on files changed in this branch).
+4. For each module, call \`spawn_subagent\` to generate its test file.
+5. Review each VITEST RESULT and fix failures via additional sub-agent calls.
+6. Summarise what was created and the overall test status.
 `;
 
 	const query = `Generate vitest unit tests for branch "${branch.name}" (${branch.message}).
 
 Steps:
 1. Explore the project structure (list_directory, search_files "**/*.ts").
-2. Read the most important source files.
-3. Write test files to "${testDirRelative}/" covering each module.
-4. Every test file must be runnable as-is with \`vitest run\`.`;
+2. Read package.json to understand the project.
+3. Identify the source modules introduced or modified in this branch.
+4. For each module, use spawn_subagent to create a dedicated test file in "${testDirRelative}/".
+   Each sub-agent query must be self-contained: include the source file path, the target
+   test file path, and the vitest conventions.
+5. After each spawn_subagent call, check the VITEST RESULT block in the response.
+   If a test failed, spawn another sub-agent to fix it using the error output.
+6. Report the final status of every test file created.`;
 
 	await agent.executeAgent({
 		dirPath: repoPath,
@@ -204,6 +252,7 @@ Steps:
 			"write_file",
 			"search_files",
 			"grep_search",
+			"spawn_subagent",
 		]),
 		query,
 	});
@@ -345,7 +394,8 @@ export const testGeneratorTools: ToolDefinition[] = [
 			const testDirAbsolute = nodePath.join(repoPath, testDirRelative);
 
 			// Ensure the test output directory exists
-      if (!fs.existsSync(testDirAbsolute)) fs.mkdirSync(testDirAbsolute, { recursive: true });
+			if (!fs.existsSync(testDirAbsolute))
+				fs.mkdirSync(testDirAbsolute, { recursive: true });
 
 			// ── 2. Generate tests with the AI agent ───────────────────────────
 			logger.info(`[test-generator] Generating tests → ${testDirRelative}`);
