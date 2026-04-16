@@ -10,7 +10,7 @@
     "agent-template",
     "agent-azuredevops",
     "agent-event-source",
-    "agent-test"
+    "agent-unitTest"
   ],
   "scripts": {
     "start": "bun run --filter agent-server --elide-lines 0 start"
