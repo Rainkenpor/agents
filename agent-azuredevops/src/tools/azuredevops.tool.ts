@@ -12,6 +12,7 @@ import { CreatePipelineYamlUseCase } from "../application/use-cases/CreatePipeli
 import { RegisterPipelinesUseCase } from "../application/use-cases/RegisterPipelinesUseCase.js";
 import { CreateSelfServiceRepositoryUseCase } from "../application/use-cases/CreateSelfServiceRepositoryUseCase.js";
 import { AuditRepoNamingUseCase } from "../application/use-cases/AuditRepoNamingUseCase.js";
+import { ValidatePipelineStandardizationUseCase } from "../application/use-cases/ValidatePipelineStandardizationUseCase.js";
 import { ensureKebabCase, normalizeOrganization } from "../shared/validation.js";
 import { getDefaultOrganization } from "../shared/config.js";
 import type { AzureConnection } from "../domain/types.js";
@@ -23,6 +24,7 @@ const createSelfServiceRepositoryUseCase = new CreateSelfServiceRepositoryUseCas
 const registerPipelinesUseCase = new RegisterPipelinesUseCase(azureDevOps);
 const createPipelineYamlUseCase = new CreatePipelineYamlUseCase(azureDevOps);
 const auditRepoNamingUseCase = new AuditRepoNamingUseCase(azureDevOps);
+const validatePipelineStandardizationUseCase = new ValidatePipelineStandardizationUseCase();
 
 function buildConnection(organization: string | undefined, project: string, pat: string): AzureConnection {
   return {
@@ -213,6 +215,52 @@ export const azureDevOpsTools: ToolDefinition[] = [
     handler: async ({ pat, organization }: { pat: string; organization?: string }) => {
       const result = await auditRepoNamingUseCase.execute({
         connection: buildConnection(organization, "", pat),
+      });
+      return ok(result);
+    },
+  },
+
+  {
+    name: "use_case_validate_pipeline_standardization",
+    description: [
+      "Valida el estado de estandarización de pipelines de un repositorio en Azure DevOps.",
+      "Verifica: (1) existencia de archivos YAML en la carpeta /pipelines del repositorio,",
+      "(2) estructura interna de los YAML (claves trigger y stages),",
+      "(3) existencia del repositorio self-service-devops en el proyecto,",
+      "(4) presencia de la carpeta con valores Helm para el repositorio dentro de self-service,",
+      "(5) registro de pipelines en Azure DevOps para las ramas develop, QA, staging y main.",
+      "Devuelve un diagnóstico completo y una recomendación en lenguaje natural sobre la siguiente acción a ejecutar.",
+      "No realiza cambios — solo diagnostica.",
+      "PAT requerido: Code (Read) y Build (Read).",
+    ].join(" "),
+    inputSchema: {
+      pat: z.string().describe("Personal Access Token de Azure DevOps con permisos Code (Read) y Build (Read)."),
+      project: z.string().describe("Nombre exacto del proyecto de Azure DevOps donde vive el repositorio a validar."),
+      repo_name: z.string().describe("Nombre del repositorio a validar en kebab-case."),
+      organization: z.string().optional().describe(`Nombre de la organización en Azure DevOps. Si se omite, se usa '${getDefaultOrganization()}'.`),
+      branches_to_check: z
+        .array(z.string())
+        .optional()
+        .describe("Ramas a verificar para el registro de pipelines. Default: ['develop', 'QA', 'staging', 'main']."),
+    },
+    handler: async ({
+      pat,
+      project,
+      repo_name,
+      organization,
+      branches_to_check,
+    }: {
+      pat: string;
+      project: string;
+      repo_name: string;
+      organization?: string;
+      branches_to_check?: string[];
+    }) => {
+      ensureKebabCase(repo_name, "repositorio");
+      const result = await validatePipelineStandardizationUseCase.execute({
+        connection: buildConnection(organization, project, pat),
+        repoName: repo_name,
+        branchesToCheck: branches_to_check,
       });
       return ok(result);
     },
