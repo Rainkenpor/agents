@@ -17,6 +17,7 @@ import type { ToolDefinition } from "./types";
 import { logger } from "./util/logger";
 // import { exampleTools } from "./tools/example.tool";
 import { testGeneratorTools } from "./tools/test-generator.tool";
+import { gitBranchesTools } from "./tools/git-branches.tool";
 
 const RESPONSE_PREVIEW_LENGTH = 200;
 
@@ -24,6 +25,7 @@ const RESPONSE_PREVIEW_LENGTH = 200;
 export const registryTool: ToolDefinition[] = [
 	// ...exampleTools,
 	...testGeneratorTools,
+	...gitBranchesTools,
 ];
 
 function wrapHandler(
