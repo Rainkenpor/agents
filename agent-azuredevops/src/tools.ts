@@ -16,37 +16,35 @@ const RESPONSE_PREVIEW_LENGTH = 200;
 // ─── Agregar nuevos arrays de tools aqui ─────────────────────────────────────
 export const registryTool: ToolDefinition[] = [...azureDevOpsTools];
 
-/** Elimina credenciales sensibles antes de loguear los argumentos de una tool. */
-function sanitizeArgs(args: Record<string, unknown>): Record<string, unknown> {
-  const sanitized = { ...args };
-  if ("pat" in sanitized) sanitized["pat"] = "[REDACTED]";
-  return sanitized;
-}
-
 function wrapHandler(
-  name: string,
-  handler: ToolDefinition["handler"],
+	name: string,
+	pat: string,
+	handler: ToolDefinition["handler"],
 ): ToolDefinition["handler"] {
-  return async (args) => {
-    logger.info(`[tool] → ${name}(${JSON.stringify(sanitizeArgs(args))})`);
-    const result = await handler(args);
-    const preview = JSON.stringify(result);
-    const suffix = preview.length > RESPONSE_PREVIEW_LENGTH ? "…" : "";
-    logger.info(`[tool] ← ${preview.slice(0, RESPONSE_PREVIEW_LENGTH)}${suffix}`);
-    return result;
-  };
+	return async (args) => {
+		const argsWithPat = { pat, ...args };
+		logger.info(`[tool] → ${name}(${JSON.stringify(args)})`);
+		const result = await handler(argsWithPat);
+		const preview = JSON.stringify(result);
+		const suffix = preview.length > RESPONSE_PREVIEW_LENGTH ? "…" : "";
+		logger.info(
+			`[tool] ← ${preview.slice(0, RESPONSE_PREVIEW_LENGTH)}${suffix}`,
+		);
+		return result;
+	};
 }
 
 /**
- * Registra todas las tools del registry en el McpServer dado
+ * Registra todas las tools del registry en el McpServer dado,
+ * inyecta el PAT del header HTTP en cada handler,
  * y aplica logging centralizado via wrapHandler.
  */
-export function initializeTools(s: McpServer): void {
-  for (const tool of registryTool) {
-    s.registerTool(
-      tool.name,
-      { description: tool.description, inputSchema: tool.inputSchema },
-      wrapHandler(tool.name, tool.handler),
-    );
-  }
+export function initializeTools(s: McpServer, pat: string): void {
+	for (const tool of registryTool) {
+		s.registerTool(
+			tool.name,
+			{ description: tool.description, inputSchema: tool.inputSchema },
+			wrapHandler(tool.name, pat, tool.handler),
+		);
+	}
 }

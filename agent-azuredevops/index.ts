@@ -28,14 +28,39 @@ Servidor MCP para Azure DevOps organizado con arquitectura hexagonal.
 
 // ─── Handler HTTP (sin chequeo de URL ni listen) ──────────────────────────────
 
-async function handler(req: IncomingMessage, res: ServerResponse, parsedBody: unknown | Record<string, unknown>): Promise<void> {
+async function handler(
+	req: IncomingMessage,
+	res: ServerResponse,
+	parsedBody: unknown | Record<string, unknown>,
+): Promise<void> {
 	try {
+		let rpcMethod: string | undefined;
+		if (parsedBody && typeof parsedBody === "object") {
+			try {
+				rpcMethod = (parsedBody as { method?: string }).method;
+			} catch {
+				// body no es JSON (p.ej. GET de SSE)
+			}
+		}
+
+		const patHeader = req.headers["mcp-pat"];
+		const pat = Array.isArray(patHeader) ? patHeader[0] : patHeader;
+		const isDiscovery =
+			rpcMethod === "tools/list" || rpcMethod === "initialize";
+
+		if (!pat && !isDiscovery) {
+			throw new Error(
+				"Credencial invalida: Personal Access Token (PAT) no definido",
+			);
+		}
 		const mcpServer = new McpServer(
 			{ name: "agent-azuredevops", version: "0.1.0" },
 			{ instructions: INSTRUCTIONS },
 		);
-		initializeTools(mcpServer);
-		const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+		initializeTools(mcpServer, pat ?? "");
+		const transport = new StreamableHTTPServerTransport({
+			sessionIdGenerator: undefined,
+		});
 		res.on("close", () => transport.close());
 		await mcpServer.connect(transport);
 		await transport.handleRequest(req, res, parsedBody);
@@ -57,7 +82,8 @@ export const azureDevopsMcp: McpModule = {
 		{
 			key: "AZDO_ORGANIZATION",
 			required: false,
-			description: "Organizacion por defecto de Azure DevOps. Si falta, la tool usa grupodistelsa o el valor enviado por input.",
+			description:
+				"Organizacion por defecto de Azure DevOps. Si falta, la tool usa grupodistelsa o el valor enviado por input.",
 		},
 	],
 	tools: [
@@ -70,9 +96,21 @@ export const azureDevopsMcp: McpModule = {
 		//// ── Pipelines
 		//{ name: "azdo_register_pipeline",         description: "Registra en Azure DevOps un YAML que ya existe en el repo." },
 		// ── Casos de uso
-		{ name: "use_case_create_selfservice_repository", description: "Crea el repositorio self-service-devops con valores Helm para las ramas estandar." },
-		{ name: "use_case_repo_pipeline_trigger", description: "Registra los pipelines estandar cuando los YAML ya existen en el repositorio." },
-		{ name: "use_case_repo_pipeline_plus",    description: "Genera un YAML CI/CD, lo sube a una rama de trabajo y crea PR hacia la rama objetivo." },
+		{
+			name: "use_case_create_selfservice_repository",
+			description:
+				"Crea el repositorio self-service-devops con valores Helm para las ramas estandar.",
+		},
+		{
+			name: "use_case_repo_pipeline_trigger",
+			description:
+				"Registra los pipelines estandar cuando los YAML ya existen en el repositorio.",
+		},
+		{
+			name: "use_case_repo_pipeline_plus",
+			description:
+				"Genera un YAML CI/CD, lo sube a una rama de trabajo y crea PR hacia la rama objetivo.",
+		},
 	],
 	handler,
 };

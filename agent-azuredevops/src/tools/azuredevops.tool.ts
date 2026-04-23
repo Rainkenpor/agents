@@ -52,7 +52,6 @@ export const azureDevOpsTools: ToolDefinition[] = [
       "PAT requerido: Code (Read & Write) sobre el repo origen y el repo destino.",
     ].join(" "),
     inputSchema: {
-      pat: z.string().describe("Personal Access Token de Azure DevOps con permisos Code (Read & Write) sobre el repo origen y el repo destino."),
       project: z.string().describe("Nombre exacto del proyecto de Azure DevOps donde viven ambos repositorios."),
       repo_name: z.string().describe("Nombre del repositorio de la aplicacion en kebab-case (ej: 'mi-servicio'). Debe existir en el proyecto."),
       image_project: z.string().describe("Proyecto o namespace de imagenes de contenedor usado en el campo image.repository del Helm chart (ej: 'acr-distelsa/backend')."),
@@ -81,7 +80,7 @@ export const azureDevOpsTools: ToolDefinition[] = [
       alb_name,
       target_repo,
     }: {
-      pat: string;
+      pat: string; // inyectado desde el header mcp-pat
       project: string;
       repo_name: string;
       image_project: string;
@@ -126,7 +125,6 @@ export const azureDevOpsTools: ToolDefinition[] = [
       "PAT requerido: Code (Read) y Build (Read & Execute).",
     ].join(" "),
     inputSchema: {
-      pat: z.string().describe("Personal Access Token de Azure DevOps con permisos Code (Read) y Build (Read & Execute)."),
       project: z.string().describe("Nombre exacto del proyecto de Azure DevOps."),
       repo_name: z.string().describe("Nombre del repositorio objetivo en kebab-case. Los cuatro archivos YAML deben existir en sus ramas correspondientes."),
       organization: z.string().optional().describe(`Nombre de la organizacion en Azure DevOps. Si se omite, se usa '${getDefaultOrganization()}'.`),
@@ -150,7 +148,6 @@ export const azureDevOpsTools: ToolDefinition[] = [
       "PAT requerido: Code (Read & Write) para ramas, pushes y PRs.",
     ].join(" "),
     inputSchema: {
-      pat: z.string().describe("Personal Access Token de Azure DevOps con permisos Code (Read & Write) para crear ramas, hacer push y abrir PRs."),
       organization: z.string().optional().describe(`Nombre de la organizacion en Azure DevOps. Si se omite, se usa '${getDefaultOrganization()}'.`),
       project: z.string().describe("Nombre exacto del proyecto de Azure DevOps donde vive el repositorio."),
       repo_name: z.string().describe("Nombre del repositorio objetivo en kebab-case. El repositorio debe existir previamente en el proyecto."),
@@ -173,7 +170,7 @@ export const azureDevOpsTools: ToolDefinition[] = [
       sonar_name,
       csproj,
     }: {
-      pat: string;
+      pat: string; // inyectado desde el header mcp-pat
       organization?: string;
       project: string;
       repo_name: string;
@@ -209,7 +206,6 @@ export const azureDevOpsTools: ToolDefinition[] = [
       "PAT requerido: solo lectura de proyectos y repositorios (Project Read + Code Read).",
     ].join(" "),
     inputSchema: {
-      pat: z.string().describe("Personal Access Token de Azure DevOps con permisos de lectura sobre proyectos y repositorios (Project Read + Code Read)."),
       organization: z.string().optional().describe(`Nombre de la organizacion en Azure DevOps. Si se omite, se usa '${getDefaultOrganization()}'.`),
     },
     handler: async ({ pat, organization }: { pat: string; organization?: string }) => {
@@ -234,7 +230,6 @@ export const azureDevOpsTools: ToolDefinition[] = [
       "PAT requerido: Code (Read) y Build (Read).",
     ].join(" "),
     inputSchema: {
-      pat: z.string().describe("Personal Access Token de Azure DevOps con permisos Code (Read) y Build (Read)."),
       project: z.string().describe("Nombre exacto del proyecto de Azure DevOps donde vive el repositorio a validar."),
       repo_name: z.string().describe("Nombre del repositorio a validar en kebab-case."),
       organization: z.string().optional().describe(`Nombre de la organización en Azure DevOps. Si se omite, se usa '${getDefaultOrganization()}'.`),
@@ -250,7 +245,7 @@ export const azureDevOpsTools: ToolDefinition[] = [
       organization,
       branches_to_check,
     }: {
-      pat: string;
+      pat: string; // inyectado desde el header mcp-pat
       project: string;
       repo_name: string;
       organization?: string;

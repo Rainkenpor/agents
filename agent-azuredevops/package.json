@@ -7,7 +7,6 @@
   "scripts": {
     "dev": "bun --watch src/server.ts",
     "start": "bun src/server.ts",
-    "start:http": "bun src/http-server.ts",
     "check": "tsc --noEmit",
     "build": "bun build ./src/server.ts --outdir dist --target bun"
   },
