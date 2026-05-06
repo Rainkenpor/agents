@@ -10,7 +10,8 @@
     "agent-template",
     "agent-azuredevops",
     "agent-event-source",
-    "agent-unitTest"
+    "agent-unitTest",
+    "agent-datadog"
   ],
   "scripts": {
     "start": "bun run --filter agent-server --elide-lines 0 start"
