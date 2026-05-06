@@ -54,7 +54,7 @@ export const azureDevOpsTools: ToolDefinition[] = [
     inputSchema: {
       project: z.string().describe("Nombre exacto del proyecto de Azure DevOps donde viven ambos repositorios."),
       repo_name: z.string().describe("Nombre del repositorio de la aplicacion en kebab-case (ej: 'mi-servicio'). Debe existir en el proyecto."),
-      image_project: z.string().describe("Proyecto o namespace de imagenes de contenedor usado en el campo image.repository del Helm chart (ej: 'acr-distelsa/backend')."),
+      image_project: z.string().describe("Proyecto o namespace de imagenes de contenedor usado en el campo image.repository del Helm chart (ej: 'distelsaregistry.azurecr.io/proyecto/repo')."),
       organization: z.string().optional().describe(`Nombre de la organizacion en Azure DevOps. Si se omite, se usa '${getDefaultOrganization()}'.`),
       replica_count: z.number().int().positive().default(1).describe("Numero inicial de replicas del Deployment de Kubernetes. Default: 1."),
       has_service: z.boolean().describe("Si es true, el values.yaml incluye la seccion Service habilitada. Requerido para que la app sea accesible dentro del cluster."),
