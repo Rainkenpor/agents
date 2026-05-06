@@ -12,60 +12,38 @@ export class HelmValuesGenerator {
   }
 
   private buildYaml(input: HelmValuesInput): string {
-    const serviceEnabled = input.hasService ? "true" : "false";
     const ingressEnabled = input.hasIngress ? "true" : "false";
+    const isAWS = input.hosting === "AWS" ? "true" : "false";
     const ingressClassName = input.hosting === "AWS" ? "alb" : "nginx";
-    const hostLine = input.webHost ? `    - host: ${input.webHost}` : "    - host: example.local";
-    const pathsBlock = [
-      "      http:",
-      "        paths:",
-      "          - path: /",
-      "            pathType: Prefix",
-      "            backend:",
-      "              service:",
-      `                name: ${input.appRepoName}`,
-      "                port:",
-      `                  number: ${input.servicePort}`,
-    ].join("\n");
-    const awsAnnotations = input.hosting === "AWS"
-      ? [
-          "  annotations:",
-          `    alb.ingress.kubernetes.io/group.name: ${input.albName ?? "shared-alb"}`,
-          "    alb.ingress.kubernetes.io/scheme: internal",
-          "    alb.ingress.kubernetes.io/target-type: ip",
-        ].join("\n")
-      : "";
+    const ingressHost = input.webHost ?? "example.local";
 
     return [
       `replicaCount: ${input.replicaCount}`,
-      "",
-      "image:",
-      `  repository: ${input.imageProject}/${input.appRepoName}`,
-      `  tag: ${input.branch}`,
-      "  pullPolicy: IfNotPresent",
+      `nombreDespliegue: ${input.appRepoName}`,
+      `envFromSecret: "${input.appRepoName}-secret"`,
+      `keyVaultSecret: "innovation-sandbox-${input.appRepoName}-secret"`,
+      `keyVaultSecretBranch: "${input.branch}"`,
       "",
       "service:",
-      `  enabled: ${serviceEnabled}`,
       `  port: ${input.servicePort}`,
+      `  targetPort: ${input.servicePort}`,
+      "  type: ClusterIP",
+      "  protocol: TCP",
       "",
       "ingress:",
       `  enabled: ${ingressEnabled}`,
-      `  className: ${ingressClassName}`,
-      ...(awsAnnotations ? [awsAnnotations] : []),
-      "  hosts:",
-      hostLine,
-      pathsBlock,
+      `  isAWS: ${isAWS}`,
+      `  className: "${ingressClassName}"`,
+      `  host: "${ingressHost}"`,
+      "  path: /",
+      "  pathType: Prefix",
       "",
-      "resources: {}",
+      "# __________________________________NO EDITAR ESTA SECCION________________________________________________________",
+      "image:",
+      `  repository: ${input.imageProject}/${input.appRepoName}`,
+      `  tag: ${input.branch}`,
+      "  pullPolicy: Always",
       "",
-      "autoscaling:",
-      "  enabled: false",
-      "",
-      "nodeSelector: {}",
-      "",
-      "tolerations: []",
-      "",
-      "affinity: {}",
     ].join("\n");
   }
 }
