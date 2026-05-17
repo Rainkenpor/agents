@@ -22,12 +22,12 @@ import type { ZodTypeAny } from "zod";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { HookDefinition } from "./types";
 import { logger } from "./util/logger";
-import { exampleHooks } from "./hooks/example.hook";
+import { pencilHooks } from "./hooks/pencil.hook";
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
 // Add new hook arrays here
-export const registryHook: HookDefinition[] = [...exampleHooks];
+export const registryHook: HookDefinition[] = [...pencilHooks];
 
 // ─── Hook Discovery ───────────────────────────────────────────────────────────
 

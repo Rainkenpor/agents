@@ -35,7 +35,7 @@ async function handler(
 	res: ServerResponse,
 	parsedBody: unknown | Record<string, unknown>,
 ): Promise<void> {
-  let rpcMethod: string | undefined;
+	let rpcMethod: string | undefined;
 	if (parsedBody && typeof parsedBody === "object") {
 		try {
 			rpcMethod = (parsedBody as { method?: string }).method;
@@ -44,10 +44,10 @@ async function handler(
 		}
 	}
 
-  // isDiscovery indica si se desea solo listar las tools existentes
+	// isDiscovery indica si se desea solo listar las tools existentes
 	const isDiscovery = rpcMethod === "tools/list" || rpcMethod === "initialize";
-	
-  try {
+
+	try {
 		const mcpServer = new McpServer({ name: "mcp-template", version: "1.0.0" });
 		initializeTools(mcpServer);
 		const transport = new StreamableHTTPServerTransport({
@@ -73,11 +73,15 @@ async function hooksHandler(
 ): Promise<void> {
 	const url = new URL(req.url ?? "/", "http://localhost");
 	// Normaliza la ruta relativa al prefijo del módulo (e.g. /template/hooks → /hooks)
-	const pathname = ("/" + url.pathname.replace(/^\/[^/]+/, "").replace(/^\//, "")) || "/";
+	const pathname =
+		"/" + url.pathname.replace(/^\/[^/]+/, "").replace(/^\//, "") || "/";
 	const method = req.method ?? "GET";
 
 	// GET /hooks  →  catálogo completo con payload schemas (discovery)
-	if ((pathname === "/" || pathname === "/hooks" || pathname === "") && method === "GET") {
+	if (
+		(pathname === "/" || pathname === "/hooks" || pathname === "") &&
+		method === "GET"
+	) {
 		res.writeHead(200, { "Content-Type": "application/json" });
 		res.end(JSON.stringify(getHookCatalog(), null, 2));
 		return;
@@ -121,7 +125,12 @@ async function hooksHandler(
 		res.writeHead(201, { "Content-Type": "application/json" });
 		res.end(
 			JSON.stringify(
-				{ id: sub.id, url: sub.url, events: sub.events, createdAt: sub.createdAt },
+				{
+					id: sub.id,
+					url: sub.url,
+					events: sub.events,
+					createdAt: sub.createdAt,
+				},
 				null,
 				2,
 			),
@@ -137,7 +146,9 @@ async function hooksHandler(
 		res.writeHead(removed ? 200 : 404, { "Content-Type": "application/json" });
 		res.end(
 			JSON.stringify(
-				removed ? { removed: true, id } : { error: "Subscription not found", id },
+				removed
+					? { removed: true, id }
+					: { error: "Subscription not found", id },
 			),
 		);
 		return;
@@ -149,9 +160,9 @@ async function hooksHandler(
 
 // ─── Módulo exportado ─────────────────────────────────────────────────────────
 
-export const templateMcp: McpModule = {
-	slug: "template",
-	displayName: "MCP Template",
+export const PencilMcp: McpModule = {
+	slug: "pencil",
+	displayName: "Pencil",
 	credentials: [
 		{
 			key: "SERVER_BASE_URL",
@@ -160,9 +171,15 @@ export const templateMcp: McpModule = {
 		},
 	],
 	// Genera la lista de tools dinámicamente desde el registry
-	tools: registryTool.map((t) => ({ name: t.name, description: t.description })),
+	tools: registryTool.map((t) => ({
+		name: t.name,
+		description: t.description,
+	})),
 	// Genera la lista de hooks dinámicamente desde el registry
-	hooks: registryHook.map((h) => ({ name: h.name, description: h.description })),
+	hooks: registryHook.map((h) => ({
+		name: h.name,
+		description: h.description,
+	})),
 	handler,
 	hooksHandler,
 };

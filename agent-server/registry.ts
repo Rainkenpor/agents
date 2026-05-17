@@ -6,6 +6,7 @@ import { azureDevopsMcp } from "../agent-azuredevops/index.ts";
 import { eventSourceMcp } from "../agent-event-source/index.ts";
 import { unitTestMCP } from "../agent-unitTest/index.ts";
 import { datadogMcp } from "./../agent-datadog/index";
+import { PencilMcp } from "../agent-pencil/index.ts";
 
 /**
  * Lista de todos los MCPs registrados en el servidor central.
@@ -22,4 +23,5 @@ export const mcpModules: McpModule[] = [
 	eventSourceMcp,
 	unitTestMCP,
 	datadogMcp,
+	PencilMcp,
 ];

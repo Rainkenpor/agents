@@ -1,16 +1,21 @@
 {
-  "name": "mcp-template",
+  "name": "agent-pencil",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "bun run server.ts"
+    "start": "bun run server.ts",
+    "render:example": "bun run scripts/render-example.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
+    "@resvg/resvg-js": "^2.6.2",
+    "pdfkit": "^0.15.0",
+    "svg-to-pdfkit": "^0.1.8",
     "winston": "^3.19.0",
     "zod": "^3.25.28"
   },
   "devDependencies": {
-    "@types/node": "^25.5.0"
+    "@types/node": "^25.5.0",
+    "@types/pdfkit": "^0.13.4"
   }
 }

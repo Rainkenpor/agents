@@ -11,7 +11,8 @@
     "agent-azuredevops",
     "agent-event-source",
     "agent-unitTest",
-    "agent-datadog"
+    "agent-datadog",
+    "agent-pencil"
   ],
   "scripts": {
     "start": "bun run --filter agent-server --elide-lines 0 start"
