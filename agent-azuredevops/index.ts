@@ -38,9 +38,7 @@ async function handler(
 		if (parsedBody && typeof parsedBody === "object") {
 			try {
 				rpcMethod = (parsedBody as { method?: string }).method;
-			} catch {
-				// body no es JSON (p.ej. GET de SSE)
-			}
+			} catch {}
 		}
 
 		const patHeader = req.headers["mcp-pat"];
@@ -49,9 +47,7 @@ async function handler(
 			rpcMethod === "tools/list" || rpcMethod === "initialize";
 
 		if (!pat && !isDiscovery) {
-			throw new Error(
-				"Credencial invalida: Personal Access Token (PAT) no definido",
-			);
+			throw new Error("Credencial invalida: Personal Access Token (PAT) no definido");
 		}
 		const mcpServer = new McpServer(
 			{ name: "agent-azuredevops", version: "0.1.0" },
