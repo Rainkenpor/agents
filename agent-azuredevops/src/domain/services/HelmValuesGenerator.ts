@@ -21,7 +21,7 @@ export class HelmValuesGenerator {
       `replicaCount: ${input.replicaCount}`,
       `nombreDespliegue: ${input.appRepoName}`,
       `envFromSecret: "${input.appRepoName}-secret"`,
-      `keyVaultSecret: "innovation-sandbox-${input.appRepoName}-secret"`,
+      `keyVaultSecret: "${input.imageProject}-${input.appRepoName}-secret"`,
       `keyVaultSecretBranch: "${input.branch}"`,
       "",
       "service:",
