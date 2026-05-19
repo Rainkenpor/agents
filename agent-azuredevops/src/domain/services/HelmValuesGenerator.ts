@@ -40,8 +40,8 @@ export class HelmValuesGenerator {
       "",
       "# __________________________________NO EDITAR ESTA SECCION________________________________________________________",
       "image:",
-      `  repository: ${input.imageProject}/${input.appRepoName}`,
-      `  tag: ${input.branch}`,
+      `  repository: distelsaregistry.azurecr.io/${input.imageProject}/${input.appRepoName}`,
+      `  tag: ${input.branch}-0000`,
       "  pullPolicy: Always",
       "",
     ].join("\n");
