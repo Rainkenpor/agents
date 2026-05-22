@@ -397,6 +397,16 @@ export const jiraMcp: McpModule = {
 				"Crea una página en Confluence a partir de un documento de trazabilidad (agent-document)",
 		},
 		{
+			name: "confluence_find_page_for_document",
+			description:
+				"Consulta si un documento de trazabilidad ya tiene página publicada en Confluence (busca por título)",
+		},
+		{
+			name: "confluence_update_page_from_document",
+			description:
+				"Actualiza la página de Confluence asociada a un documento de trazabilidad reemplazando el body con las secciones actuales",
+		},
+		{
 			name: "confluence_get_page_children",
 			description: "Lista las páginas hijas de una página",
 		},

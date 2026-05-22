@@ -1,7 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { type AtlassianHelpers, adf, ok } from "./types.ts";
-import { publishDocumentToConfluence } from "./services/publish-document-to-confluence.ts";
+import {
+	findPageForDocument,
+	publishDocumentToConfluence,
+	updateDocumentPageInConfluence,
+} from "./services/publish-document-to-confluence.ts";
 
 // ─── Helpers para el POC de Arquitectura ──────────────────────────────────────
 
@@ -963,9 +967,57 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 				.optional()
 				.describe('Si se omite, usa "<code> — <title>" del documento'),
 		},
-		async (args) =>  { 
-			return ok(await publishDocumentToConfluence(h, args))
-		}
+		async (args) => {
+			return ok(await publishDocumentToConfluence(h, args));
+		},
+	);
+
+	s.tool(
+		"confluence_find_page_for_document",
+		"Consulta si un documento de trazabilidad ya tiene página publicada en Confluence. Busca por título esperado en el space; devuelve exists=false si no hay coincidencia. Útil antes de crear o actualizar.",
+		{
+			document_id: z
+				.string()
+				.describe("UUID del documento de trazabilidad (agent-document)"),
+			space_key: z
+				.string()
+				.describe("Space key de Confluence donde buscar la página"),
+			title_override: z
+				.string()
+				.optional()
+				.describe(
+					'Si se omite, busca por "<code> — <title>" del documento. Debe coincidir con el usado al crear.',
+				),
+		},
+		async (args) => {
+			return ok(await findPageForDocument(h, args));
+		},
+	);
+
+	s.tool(
+		"confluence_update_page_from_document",
+		"Actualiza la página de Confluence asociada a un documento de trazabilidad. Localiza la página por título (mismo que usó la tool de creación) y reemplaza todo el body con las secciones actuales del documento. El content se obtiene internamente; el LLM no lo ve.",
+		{
+			document_id: z
+				.string()
+				.describe("UUID del documento de trazabilidad (agent-document)"),
+			space_key: z
+				.string()
+				.describe("Space key de Confluence donde vive la página"),
+			title_override: z
+				.string()
+				.optional()
+				.describe(
+					'Si se omite, usa "<code> — <title>" del documento. Debe coincidir con el usado al crear, o no se encontrará la página.',
+				),
+			version_comment: z
+				.string()
+				.optional()
+				.describe("Comentario opcional para el historial de versiones"),
+		},
+		async (args) => {
+			return ok(await updateDocumentPageInConfluence(h, args));
+		},
 	);
 
 	// ══════════════════════════════════════════════════════════════════════════
