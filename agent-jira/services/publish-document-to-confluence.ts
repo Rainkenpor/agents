@@ -3,7 +3,6 @@ import {
 	type FetchedDocument,
 	fetchDocumentById,
 } from "./document-client.ts";
-import { wikiToStorage } from "./md-to-storage.ts";
 
 export interface PublishDocumentArgs {
 	document_id: string;
@@ -15,9 +14,8 @@ export interface PublishDocumentArgs {
 export interface PublishDocumentResult {
 	page_id: string;
 	page_url: string;
-	document_code: string;
-	document_title: string;
-	sections_count: number;
+	document_id: string;
+	document_name: string;
 }
 
 export interface UpdateDocumentArgs {
@@ -43,32 +41,27 @@ export interface FindDocumentPageResult {
 	page_url: string | null;
 	page_title: string | null;
 	version: number | null;
-	document_code: string;
-	document_title: string;
+	document_id: string;
+	document_name: string;
 	expected_title: string;
 }
 
 function buildExpectedTitle(
-	doc: Pick<FetchedDocument, "code" | "title">,
+	doc: Pick<FetchedDocument, "name">,
 	title_override?: string,
 ): string {
-	return title_override ?? `${doc.code} — ${doc.title}`;
+	return title_override ?? doc.name;
 }
 
-function buildStorageBody(
+async function markdownToStorage(
 	h: AtlassianHelpers,
-	doc: FetchedDocument,
+	markdown: string,
 ): Promise<string> {
-	const orderedSections = [...doc.sections].sort((a, b) => {
-		const ai = a.order_index ?? Number.MAX_SAFE_INTEGER;
-		const bi = b.order_index ?? Number.MAX_SAFE_INTEGER;
-		if (ai !== bi) return ai - bi;
-		return a.created_at.localeCompare(b.created_at);
-	});
-	const wikiSource = orderedSections
-		.map((sec) => `h2. ${sec.name}\n\n${sec.content ?? ""}`)
-		.join("\n\n");
-	return wikiToStorage(h, wikiSource);
+	const res = (await h.apiPost(h.cfluUrl("contentbody/convert/storage"), {
+		value: markdown,
+		representation: "wiki",
+	})) as { value: string };
+	return res.value;
 }
 
 function resolvePageUrl(
@@ -121,14 +114,14 @@ export async function publishDocumentToConfluence(
 	h: AtlassianHelpers,
 	{ document_id, parent_id, space_key, title_override }: PublishDocumentArgs,
 ): Promise<PublishDocumentResult> {
-	const doc = await fetchDocumentById(document_id);
+	const doc = await fetchDocumentById(document_id, h.agentManagerToken);
 
-	if (!doc.sections?.length)
+	if (!doc.content?.trim())
 		throw new Error(
-			`El documento ${doc.code} no tiene secciones; no hay contenido que publicar.`,
+			`El documento ${doc.id} (${doc.name}) no tiene contenido; no hay nada que publicar.`,
 		);
 
-	const storage = await buildStorageBody(h, doc);
+	const storage = await markdownToStorage(h, doc.content);
 	const title = buildExpectedTitle(doc, title_override);
 
 	let created: { id: string; _links?: { base?: string; webui?: string } };
@@ -142,7 +135,7 @@ export async function publishDocumentToConfluence(
 		})) as { id: string; _links?: { base?: string; webui?: string } };
 	} catch (err) {
 		throw new Error(
-			`No se pudo crear la página en Confluence para ${doc.code}: ${err instanceof Error ? err.message : String(err)}`,
+			`No se pudo crear la página en Confluence para ${doc.id}: ${err instanceof Error ? err.message : String(err)}`,
 		);
 	}
 
@@ -154,9 +147,8 @@ export async function publishDocumentToConfluence(
 			created.id,
 			"publishDocumentToConfluence",
 		),
-		document_code: doc.code,
-		document_title: doc.title,
-		sections_count: doc.sections.length,
+		document_id: doc.id,
+		document_name: doc.name,
 	};
 }
 
@@ -164,7 +156,7 @@ export async function findPageForDocument(
 	h: AtlassianHelpers,
 	{ document_id, space_key, title_override }: FindDocumentPageArgs,
 ): Promise<FindDocumentPageResult> {
-	const doc = await fetchDocumentById(document_id);
+	const doc = await fetchDocumentById(document_id, h.agentManagerToken);
 	const expected_title = buildExpectedTitle(doc, title_override);
 
 	const hit = await findPageByTitle(h, space_key, expected_title);
@@ -175,8 +167,8 @@ export async function findPageForDocument(
 			page_url: null,
 			page_title: null,
 			version: null,
-			document_code: doc.code,
-			document_title: doc.title,
+			document_id: doc.id,
+			document_name: doc.name,
 			expected_title,
 		};
 	}
@@ -193,8 +185,8 @@ export async function findPageForDocument(
 		),
 		page_title: page.title,
 		version: page.version?.number ?? null,
-		document_code: doc.code,
-		document_title: doc.title,
+		document_id: doc.id,
+		document_name: doc.name,
 		expected_title,
 	};
 }
@@ -208,11 +200,11 @@ export async function updateDocumentPageInConfluence(
 		version_comment,
 	}: UpdateDocumentArgs,
 ): Promise<UpdateDocumentResult> {
-	const doc = await fetchDocumentById(document_id);
+	const doc = await fetchDocumentById(document_id, h.agentManagerToken);
 
-	if (!doc.sections?.length)
+	if (!doc.content?.trim())
 		throw new Error(
-			`El documento ${doc.code} no tiene secciones; no hay contenido que actualizar.`,
+			`El documento ${doc.id} (${doc.name}) no tiene contenido; no hay nada que actualizar.`,
 		);
 
 	const expected_title = buildExpectedTitle(doc, title_override);
@@ -222,7 +214,7 @@ export async function updateDocumentPageInConfluence(
 			`No se encontró una página en el space "${space_key}" con título "${expected_title}". Crea la página primero con confluence_create_page_from_document.`,
 		);
 
-	const storage = await buildStorageBody(h, doc);
+	const storage = await markdownToStorage(h, doc.content);
 	const currentVersion = hit.page.version?.number ?? 0;
 	const newVersion = currentVersion + 1;
 
@@ -247,7 +239,7 @@ export async function updateDocumentPageInConfluence(
 		};
 	} catch (err) {
 		throw new Error(
-			`No se pudo actualizar la página ${hit.page.id} en Confluence para ${doc.code}: ${err instanceof Error ? err.message : String(err)}`,
+			`No se pudo actualizar la página ${hit.page.id} en Confluence para ${doc.id}: ${err instanceof Error ? err.message : String(err)}`,
 		);
 	}
 
@@ -259,9 +251,8 @@ export async function updateDocumentPageInConfluence(
 			updated.id,
 			"updateDocumentPageInConfluence",
 		),
-		document_code: doc.code,
-		document_title: doc.title,
-		sections_count: doc.sections.length,
+		document_id: doc.id,
+		document_name: doc.name,
 		version: updated.version?.number ?? newVersion,
 	};
 }

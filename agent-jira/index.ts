@@ -24,7 +24,7 @@ const DEFAULT_BASE_URL = (process.env.ATLASSIAN_BASE_URL ?? "").replace(
 // ─── Factory del servidor MCP (una instancia por request) ─────────────────────
 
 function buildServer(ctx: AtlassianContext): McpServer {
-	const { baseUrl, email, token } = ctx;
+	const { baseUrl, email, token, agentManagerToken } = ctx;
 
 	function authHeaders(): Record<string, string> {
 		const creds = Buffer.from(`${email}:${token}`).toString("base64");
@@ -97,6 +97,7 @@ function buildServer(ctx: AtlassianContext): McpServer {
 		apiPut,
 		apiDelete,
 		authHeaders,
+		agentManagerToken,
 	});
 	return s;
 }
@@ -150,11 +151,16 @@ async function handler(
 		return;
 	}
 
+	const rawAgentManagerToken = req.headers["x-agent-manager-token"];
+	const agentManagerToken =
+		typeof rawAgentManagerToken === "string" ? rawAgentManagerToken : "";
+
 	try {
 		const mcpServer = buildServer({
 			baseUrl: baseUrl || "https://placeholder.atlassian.net",
 			email: typeof email === "string" ? email : "",
 			token: typeof token === "string" ? token : "",
+			agentManagerToken,
 		});
 		const transport = new StreamableHTTPServerTransport({
 			sessionIdGenerator: undefined,
@@ -188,6 +194,18 @@ export const jiraMcp: McpModule = {
 			required: false,
 			description:
 				"URL de la página raíz de Confluence para el POC de Arquitectura, ej: https://org.atlassian.net/wiki/spaces/ADS/pages/1425604609/POC_Title",
+		},
+		{
+			key: "AGENT_MANAGER_URL",
+			required: false,
+			description:
+				"URL base de agent-manager (Postgres). Usada por confluence_create/find/update_page_from_document para obtener traceability_documents. Default: http://localhost:3000",
+		},
+		{
+			key: "AGENT_MANAGER_TOKEN",
+			required: false,
+			description:
+				"Bearer token para autenticar contra agent-manager al consultar /api/traceability/documents/:id",
 		},
 	],
 	tools: [
@@ -394,7 +412,7 @@ export const jiraMcp: McpModule = {
 		{
 			name: "confluence_create_page_from_document",
 			description:
-				"Crea una página en Confluence a partir de un documento de trazabilidad (agent-document)",
+				"Crea una página en Confluence a partir de un documento de trazabilidad (agent-manager)",
 		},
 		{
 			name: "confluence_find_page_for_document",
@@ -404,7 +422,7 @@ export const jiraMcp: McpModule = {
 		{
 			name: "confluence_update_page_from_document",
 			description:
-				"Actualiza la página de Confluence asociada a un documento de trazabilidad reemplazando el body con las secciones actuales",
+				"Actualiza la página de Confluence asociada a un documento de trazabilidad reemplazando el body con el content actual",
 		},
 		{
 			name: "confluence_get_page_children",

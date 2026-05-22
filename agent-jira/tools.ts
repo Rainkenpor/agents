@@ -951,11 +951,13 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 
 	s.tool(
 		"confluence_create_page_from_document",
-		"Crea una página en Confluence a partir de un documento de trazabilidad (agent-document). El content se obtiene internamente por HTTP MCP; el LLM no lo ve.",
+		"Crea una página en Confluence a partir de un documento de trazabilidad (agent-manager). El content se obtiene internamente vía HTTP; el LLM no lo ve.",
 		{
 			document_id: z
 				.string()
-				.describe("UUID del documento de trazabilidad (agent-document)"),
+				.describe(
+					"UUID del TraceabilityDocument en agent-manager (tabla traceability_documents). NO uses traceabilityId ni stageId.",
+				),
 			parent_id: z
 				.string()
 				.describe("Page ID de Confluence padre; la nueva página será hija"),
@@ -978,7 +980,9 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 		{
 			document_id: z
 				.string()
-				.describe("UUID del documento de trazabilidad (agent-document)"),
+				.describe(
+					"UUID del TraceabilityDocument en agent-manager (tabla traceability_documents). NO uses traceabilityId ni stageId.",
+				),
 			space_key: z
 				.string()
 				.describe("Space key de Confluence donde buscar la página"),
@@ -1000,7 +1004,9 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 		{
 			document_id: z
 				.string()
-				.describe("UUID del documento de trazabilidad (agent-document)"),
+				.describe(
+					"UUID del TraceabilityDocument en agent-manager (tabla traceability_documents). NO uses traceabilityId ni stageId.",
+				),
 			space_key: z
 				.string()
 				.describe("Space key de Confluence donde vive la página"),

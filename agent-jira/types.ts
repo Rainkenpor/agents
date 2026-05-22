@@ -4,6 +4,8 @@ export interface AtlassianContext {
 	baseUrl: string;
 	email: string;
 	token: string;
+	/** JWT del usuario propagado por agent-manager (header x-agent-manager-token). Vacío si no llegó. */
+	agentManagerToken: string;
 }
 
 // ─── Helpers HTTP expuestos a las tools ───────────────────────────────────────
@@ -21,6 +23,8 @@ export interface AtlassianHelpers {
 		params?: Record<string, unknown>,
 	) => Promise<unknown>;
 	authHeaders: () => Record<string, string>;
+	/** JWT del usuario propagado por agent-manager (header x-agent-manager-token). Vacío si no llegó. */
+	agentManagerToken: string;
 }
 
 // ─── Utilidades MCP ───────────────────────────────────────────────────────────
