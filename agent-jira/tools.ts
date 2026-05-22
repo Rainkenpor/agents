@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { type AtlassianHelpers, adf, ok } from "./types.ts";
+import { publishDocumentToConfluence } from "./services/publish-document-to-confluence.ts";
 
 // ─── Helpers para el POC de Arquitectura ──────────────────────────────────────
 
@@ -941,6 +942,33 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 	);
 
 	// ══════════════════════════════════════════════════════════════════════════
+	// CONFLUENCE – CREACIÓN DESDE DOCUMENTO DE TRAZABILIDAD
+	// ══════════════════════════════════════════════════════════════════════════
+
+	s.tool(
+		"confluence_create_page_from_document",
+		"Crea una página en Confluence a partir de un documento de trazabilidad (agent-document). El content se obtiene internamente por HTTP MCP; el LLM no lo ve.",
+		{
+			document_id: z
+				.string()
+				.describe("UUID del documento de trazabilidad (agent-document)"),
+			parent_id: z
+				.string()
+				.describe("Page ID de Confluence padre; la nueva página será hija"),
+			space_key: z
+				.string()
+				.describe("Space key de Confluence donde se creará la página"),
+			title_override: z
+				.string()
+				.optional()
+				.describe('Si se omite, usa "<code> — <title>" del documento'),
+		},
+		async (args) =>  { 
+			return ok(await publishDocumentToConfluence(h, args))
+		}
+	);
+
+	// ══════════════════════════════════════════════════════════════════════════
 	// CONFLUENCE – PÁGINAS
 	// ══════════════════════════════════════════════════════════════════════════
 
@@ -1574,6 +1602,7 @@ export function registerTools(s: McpServer, h: AtlassianHelpers): void {
 			);
 		},
 	);
+	
 
 	// ══════════════════════════════════════════════════════════════════════════
 	// ATLASSIAN – SOLICITUD GENÉRICA
