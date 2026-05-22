@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and, sql, asc } from 'drizzle-orm'
 import type { DB } from '../db/index.ts'
 import { documents, documentSections, templates, templateSections, documentTypes } from '../db/schema.ts'
 import { ok } from '../../types.ts'
@@ -48,7 +48,22 @@ export function registerDocumentTools(s: McpServer, db: DB): void {
 
 			if (!document) return ok({ error: 'Document not found' })
 
-			const sections = db.select().from(documentSections).where(eq(documentSections.document_id, document.id)).all()
+			const sections = db
+				.select({
+					id: documentSections.id,
+					document_id: documentSections.document_id,
+					template_section_id: documentSections.template_section_id,
+					name: documentSections.name,
+					content: documentSections.content,
+					created_at: documentSections.created_at,
+					updated_at: documentSections.updated_at,
+					order_index: templateSections.order_index
+				})
+				.from(documentSections)
+				.leftJoin(templateSections, eq(documentSections.template_section_id, templateSections.id))
+				.where(eq(documentSections.document_id, document.id))
+				.orderBy(asc(templateSections.order_index))
+				.all()
 
 			return ok({ ...document, sections })
 		}

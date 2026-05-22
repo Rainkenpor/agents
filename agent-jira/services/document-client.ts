@@ -11,6 +11,7 @@ export interface DocumentSection {
 	content: string | null;
 	created_at: string;
 	updated_at: string;
+	order_index: number | null;
 }
 
 export interface FetchedDocument {

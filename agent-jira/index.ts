@@ -392,6 +392,11 @@ export const jiraMcp: McpModule = {
 			description: "Elimina una página de Confluence (mueve a la papelera)",
 		},
 		{
+			name: "confluence_create_page_from_document",
+			description:
+				"Crea una página en Confluence a partir de un documento de trazabilidad (agent-document)",
+		},
+		{
 			name: "confluence_get_page_children",
 			description: "Lista las páginas hijas de una página",
 		},

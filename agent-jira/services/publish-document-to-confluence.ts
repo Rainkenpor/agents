@@ -28,9 +28,12 @@ export async function publishDocumentToConfluence(
 			`El documento ${doc.code} no tiene secciones; no hay contenido que publicar.`,
 		);
 
-	const orderedSections = [...doc.sections].sort((a, b) =>
-		a.created_at.localeCompare(b.created_at),
-	);
+	const orderedSections = [...doc.sections].sort((a, b) => {
+		const ai = a.order_index ?? Number.MAX_SAFE_INTEGER;
+		const bi = b.order_index ?? Number.MAX_SAFE_INTEGER;
+		if (ai !== bi) return ai - bi;
+		return a.created_at.localeCompare(b.created_at);
+	});
 
 	const wikiSource = orderedSections
 		.map((sec) => `h2. ${sec.name}\n\n${sec.content ?? ""}`)
@@ -55,10 +58,16 @@ export async function publishDocumentToConfluence(
 
 	const webui = created._links?.webui ?? "";
 	const base = created._links?.base ?? h.rawUrl("/wiki");
+	const page_url = webui ? `${base}${webui}` : "";
+	if (!page_url) {
+		console.warn(
+			`[publishDocumentToConfluence] Página ${created.id} creada sin webui; el resultado no tendrá URL navegable.`,
+		);
+	}
 
 	return {
 		page_id: created.id,
-		page_url: webui ? `${base}${webui}` : "",
+		page_url,
 		document_code: doc.code,
 		document_title: doc.title,
 		sections_count: orderedSections.length,
