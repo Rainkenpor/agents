@@ -164,6 +164,12 @@ export const teamsMcp: McpModule = {
 			description: "Client secret de la app registrada en Azure AD",
 		},
 		{
+			key: "TEAMS_APP_USER_ID",
+			required: false,
+			description:
+				"ID o userPrincipalName del usuario asociado a la app (service account). Se agrega automáticamente como miembro al crear chats y como owner al crear Teams (requerido por Graph en flujo app-only).",
+		},
+		{
 			key: "GRAPH_BASE_URL",
 			required: false,
 			description:

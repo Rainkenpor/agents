@@ -15,7 +15,13 @@ con `dotenv.config({ path: "../.env" })`):
 | `TEAMS_TENANT_ID` | ✅ | Directory (tenant) ID de Azure AD |
 | `TEAMS_CLIENT_ID` | ✅ | Application (client) ID de la app registrada |
 | `TEAMS_CLIENT_SECRET` | ✅ | Client secret de la app registrada |
+| `TEAMS_APP_USER_ID` | ❌ | Usuario asociado a la app (UPN o ID). Se incluye automáticamente como miembro al crear chats y como owner al crear Teams |
 | `GRAPH_BASE_URL` | ❌ | Base de Graph (default `https://graph.microsoft.com/v1.0`) |
+
+> **Flujo app-only:** Microsoft Graph no acepta crear chats/Teams sin un usuario
+> real. Configura `TEAMS_APP_USER_ID` con el usuario/service account de la app;
+> se agregará automáticamente (sin duplicar) a `teams_create_chat` y
+> `teams_create_team`, además de los miembros/owners que pases.
 
 ## Tools
 

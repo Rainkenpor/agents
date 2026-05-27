@@ -24,6 +24,15 @@ export const envs = {
 	get CLIENT_SECRET() {
 		return process.env.TEAMS_CLIENT_SECRET ?? "";
 	},
+	/**
+	 * ID o userPrincipalName del usuario asociado a la app (service account).
+	 * En el flujo app-only, Graph exige que este usuario sea uno de los
+	 * miembros al crear chats y uno de los owners al crear Teams; se incluye
+	 * automáticamente en esas operaciones.
+	 */
+	get APP_USER_ID() {
+		return process.env.TEAMS_APP_USER_ID ?? "";
+	},
 	/** Base de la API de Microsoft Graph */
 	get GRAPH_BASE_URL() {
 		return (process.env.GRAPH_BASE_URL ?? "https://graph.microsoft.com/v1.0").replace(

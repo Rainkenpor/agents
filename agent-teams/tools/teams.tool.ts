@@ -22,6 +22,18 @@ const splitCsv = (value: string): string[] =>
 		.map((v) => v.trim())
 		.filter((v) => v.length > 0);
 
+/**
+ * Garantiza que el usuario de la app (TEAMS_APP_USER_ID) esté incluido en la
+ * lista. Requerido por Graph en el flujo app-only al crear chats/Teams.
+ * Lo antepone si no está presente (comparación case-insensitive).
+ */
+const withAppUser = (list: string[]): string[] => {
+	const appUser = envs.APP_USER_ID;
+	if (!appUser) return list;
+	const exists = list.some((u) => u.toLowerCase() === appUser.toLowerCase());
+	return exists ? list : [appUser, ...list];
+};
+
 export const teamsTools: ToolDefinition[] = [
 	// ─── Usuarios (descubrimiento) ──────────────────────────────────────────────
 	{
@@ -67,7 +79,7 @@ export const teamsTools: ToolDefinition[] = [
 			members: z
 				.string()
 				.describe(
-					"IDs o userPrincipalName de los miembros del chat, separados por coma (ej: 'user1@org.com,user2@org.com')",
+					"IDs o userPrincipalName de los miembros del chat, separados por coma (ej: 'user1@org.com,user2@org.com'). El usuario de la app (TEAMS_APP_USER_ID) se agrega automáticamente.",
 				),
 			topic: z
 				.string()
@@ -83,7 +95,7 @@ export const teamsTools: ToolDefinition[] = [
 			members: string;
 			topic?: string;
 		}) => {
-			const memberList = splitCsv(members);
+			const memberList = withAppUser(splitCsv(members));
 			const body: Record<string, unknown> = {
 				chatType,
 				members: memberList.map((m) => ({
@@ -204,7 +216,7 @@ export const teamsTools: ToolDefinition[] = [
 			owners: z
 				.string()
 				.describe(
-					"IDs o userPrincipalName de los owners, separados por coma (al menos uno requerido)",
+					"IDs o userPrincipalName de los owners, separados por coma. El usuario de la app (TEAMS_APP_USER_ID) se agrega automáticamente como owner.",
 				),
 			visibility: z
 				.enum(["public", "private"])
@@ -222,7 +234,7 @@ export const teamsTools: ToolDefinition[] = [
 			owners: string;
 			visibility?: "public" | "private";
 		}) => {
-			const ownerList = splitCsv(owners);
+			const ownerList = withAppUser(splitCsv(owners));
 			const body: Record<string, unknown> = {
 				"template@odata.bind":
 					"https://graph.microsoft.com/v1.0/teamsTemplates('standard')",
