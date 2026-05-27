@@ -15,6 +15,13 @@ import { emit } from "../hooks";
 const userBind = (userId: string) =>
 	`${envs.GRAPH_BASE_URL}/users('${userId}')`;
 
+/** Convierte un string separado por comas en una lista de valores limpios */
+const splitCsv = (value: string): string[] =>
+	value
+		.split(",")
+		.map((v) => v.trim())
+		.filter((v) => v.length > 0);
+
 export const teamsTools: ToolDefinition[] = [
 	// ─── Usuarios (descubrimiento) ──────────────────────────────────────────────
 	{
@@ -58,9 +65,9 @@ export const teamsTools: ToolDefinition[] = [
 					"Tipo de chat: 'oneOnOne' (exactamente 2 miembros) o 'group' (2+ miembros)",
 				),
 			members: z
-				.array(z.string())
+				.string()
 				.describe(
-					"IDs o userPrincipalName de los usuarios que serán miembros del chat",
+					"IDs o userPrincipalName de los miembros del chat, separados por coma (ej: 'user1@org.com,user2@org.com')",
 				),
 			topic: z
 				.string()
@@ -73,12 +80,13 @@ export const teamsTools: ToolDefinition[] = [
 			topic,
 		}: {
 			chatType: "oneOnOne" | "group";
-			members: string[];
+			members: string;
 			topic?: string;
 		}) => {
+			const memberList = splitCsv(members);
 			const body: Record<string, unknown> = {
 				chatType,
-				members: members.map((m) => ({
+				members: memberList.map((m) => ({
 					"@odata.type": "#microsoft.graph.aadUserConversationMember",
 					roles: ["owner"],
 					"user@odata.bind": userBind(m),
@@ -90,7 +98,7 @@ export const teamsTools: ToolDefinition[] = [
 			await emit("chat.created", {
 				chatId: data.id ?? "",
 				chatType,
-				members,
+				members: memberList,
 				topic,
 			});
 			return ok(data);
@@ -194,9 +202,9 @@ export const teamsTools: ToolDefinition[] = [
 				.optional()
 				.describe("Descripción del Team"),
 			owners: z
-				.array(z.string())
+				.string()
 				.describe(
-					"IDs o userPrincipalName de los usuarios owner (al menos uno requerido)",
+					"IDs o userPrincipalName de los owners, separados por coma (al menos uno requerido)",
 				),
 			visibility: z
 				.enum(["public", "private"])
@@ -211,23 +219,24 @@ export const teamsTools: ToolDefinition[] = [
 		}: {
 			displayName: string;
 			description?: string;
-			owners: string[];
+			owners: string;
 			visibility?: "public" | "private";
 		}) => {
+			const ownerList = splitCsv(owners);
 			const body: Record<string, unknown> = {
 				"template@odata.bind":
 					"https://graph.microsoft.com/v1.0/teamsTemplates('standard')",
 				displayName,
 				description: description ?? "",
 				visibility: visibility ?? "private",
-				members: owners.map((o) => ({
+				members: ownerList.map((o) => ({
 					"@odata.type": "#microsoft.graph.aadUserConversationMember",
 					roles: ["owner"],
 					"user@odata.bind": userBind(o),
 				})),
 			};
 			const data = await graph.post("teams", body);
-			await emit("team.created", { displayName, owners, visibility });
+			await emit("team.created", { displayName, owners: ownerList, visibility });
 			return ok(data);
 		},
 	},
