@@ -10,7 +10,11 @@ async function getBrowser(): Promise<Browser> {
 		browserPromise = puppeteer.launch({
 			headless: true,
 			executablePath: envs.PUPPETEER_EXECUTABLE,
-			args: ["--no-sandbox", "--disable-setuid-sandbox"],
+			args: [
+				"--no-sandbox",
+				"--disable-setuid-sandbox",
+				"--disable-dev-shm-usage",
+			],
 		});
 	}
 	return browserPromise;
