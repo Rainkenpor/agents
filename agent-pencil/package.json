@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "bun run server.ts"
+    "start": "bun run server.ts",
+    "browser:install": "node scripts/install-browser.mjs",
+    "postinstall": "node scripts/install-browser.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",

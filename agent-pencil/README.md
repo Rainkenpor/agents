@@ -109,6 +109,79 @@ Salida esperada al arrancar:
 
 ---
 
+## Renderizado de imágenes (Puppeteer) en Ubuntu Server
+
+La tool `pencil_page_screenshot` renderiza las páginas con **Chrome headless** vía
+Puppeteer ([pencil/render.ts](pencil/render.ts)). En desarrollo (Windows/macOS)
+funciona sin configuración, pero un **Ubuntu Server pelado** requiere dos cosas:
+el binario de Chromium y las librerías del sistema que necesita para arrancar.
+
+### 1. Librerías del sistema
+
+El Chromium de Puppeteer depende de varias librerías compartidas que no vienen en
+una instalación mínima de Ubuntu. Instálalas una vez:
+
+```bash
+sudo apt-get update && sudo apt-get install -y \
+  libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+  libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+  libgbm1 libpango-1.0-0 libcairo2 libasound2 libatspi2.0-0 \
+  fonts-liberation fonts-noto-color-emoji fonts-noto-cjk
+```
+
+> Los paquetes `fonts-*` son importantes: sin fuentes instaladas el texto y los
+> emojis salen en blanco o como cuadros (□). El código ya espera a
+> `document.fonts.ready` antes de capturar, pero las fuentes deben existir.
+
+### 2. Descargar el Chromium que usará Puppeteer
+
+El proyecto usa el Chromium propio de Puppeteer (no se requiere instalar Chrome
+del sistema). La descarga se hace con:
+
+```bash
+bun run browser:install
+```
+
+Esto también corre automáticamente como `postinstall` tras `bun install`. El
+binario se guarda en `./.puppeteer-cache` (ver [puppeteer.cache.cjs](puppeteer.cache.cjs)),
+**dentro del proyecto** y no en `~/.cache/puppeteer`. Esto es deliberado: bajo
+**systemd** el `$HOME` del usuario de servicio suele estar vacío o no escribible,
+y la caché por defecto de Puppeteer fallaría. Anclarla al proyecto garantiza que
+el lugar donde se descarga y el lugar donde se busca en runtime sean el mismo.
+
+### 3. Variables de entorno relevantes
+
+| Variable                      | Descripción                                                                 | Default                  |
+| ----------------------------- | --------------------------------------------------------------------------- | ------------------------ |
+| `PUPPETEER_CACHE_DIR`         | Ruta de la caché del navegador. Úsala para una ruta compartida (ej. `/var/lib/agent-pencil/.puppeteer-cache`). Si la defines, **respétala tanto en el install como en el servicio**. | `<proyecto>/.puppeteer-cache` |
+| `PENCIL_PUPPETEER_EXECUTABLE` | Ruta a un binario de Chrome/Chromium del sistema. Solo si quieres forzar uno propio en vez del de Puppeteer. | _(vacío → usa el de Puppeteer)_ |
+
+### 4. Ejemplo de unidad systemd
+
+```ini
+[Unit]
+Description=Agent Pencil MCP
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/agent-pencil
+ExecStart=/usr/local/bin/bun run server.ts
+Restart=on-failure
+# Opcional: caché compartida fuera del proyecto (debe coincidir con el install)
+# Environment=PUPPETEER_CACHE_DIR=/var/lib/agent-pencil/.puppeteer-cache
+User=agent-pencil
+Group=agent-pencil
+
+[Install]
+WantedBy=multi-user.target
+```
+
+> Los flags de Chrome (`--no-sandbox`, `--disable-dev-shm-usage`, `--disable-gpu`,
+> `--no-zygote`, etc.) ya están configurados en [pencil/render.ts](pencil/render.ts)
+> para correr de forma estable en un servidor headless.
+
+---
+
 ## Cómo agregar tools
 
 ### Paso 1 — Crear el archivo de dominio
