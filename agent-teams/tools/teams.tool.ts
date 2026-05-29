@@ -67,6 +67,80 @@ export const teamsTools: ToolDefinition[] = [
 
 	// ─── Chats ──────────────────────────────────────────────────────────────────
 	{
+		name: "teams_list_chats",
+		description:
+			"Lista los chats en los que participa un usuario (por defecto el usuario de la app, TEAMS_APP_USER_ID) junto con los miembros de cada chat. Útil para descubrir conversaciones existentes y quiénes las integran.",
+		inputSchema: {
+			userId: z
+				.string()
+				.optional()
+				.describe(
+					"ID o userPrincipalName del usuario cuyos chats se quieren listar. Si se omite, se usa el usuario de la app (TEAMS_APP_USER_ID).",
+				),
+			chatType: z
+				.enum(["oneOnOne", "group", "meeting"])
+				.optional()
+				.describe("Filtra por tipo de chat (oneOnOne, group o meeting)"),
+			top: z
+				.number()
+				.optional()
+				.describe("Máximo de chats a devolver (default 25)"),
+		},
+		handler: async ({
+			userId,
+			chatType,
+			top,
+		}: {
+			userId?: string;
+			chatType?: "oneOnOne" | "group" | "meeting";
+			top?: number;
+		}) => {
+			const targetUser = userId ?? envs.APP_USER_ID;
+			if (!targetUser) {
+				throw new Error(
+					"No se indicó userId y TEAMS_APP_USER_ID no está configurado.",
+				);
+			}
+			const params: Record<string, unknown> = {
+				$expand: "members",
+				$top: top ?? 25,
+			};
+			if (chatType) params.$filter = `chatType eq '${chatType}'`;
+
+			const data = (await graph.get(
+				`users/${targetUser}/chats`,
+				params,
+			)) as {
+				value?: Array<{
+					id?: string;
+					topic?: string | null;
+					chatType?: string;
+					members?: Array<{
+						displayName?: string;
+						userId?: string;
+						email?: string;
+						roles?: string[];
+					}>;
+				}>;
+			};
+
+			// Normaliza la salida para enfatizar chat + miembros.
+			const chats = (data.value ?? []).map((chat) => ({
+				id: chat.id,
+				topic: chat.topic ?? null,
+				chatType: chat.chatType,
+				members: (chat.members ?? []).map((m) => ({
+					displayName: m.displayName,
+					userId: m.userId,
+					email: m.email,
+					roles: m.roles ?? [],
+				})),
+			}));
+
+			return ok({ user: targetUser, count: chats.length, chats });
+		},
+	},
+	{
 		name: "teams_create_chat",
 		description:
 			"Crea un chat de Teams (oneOnOne o group). Recibe los IDs/UPN de los usuarios miembros. Para 'group' se permiten más de 2 miembros y un topic opcional.",
