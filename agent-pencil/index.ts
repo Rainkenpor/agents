@@ -162,7 +162,7 @@ async function hooksHandler(
 
 export const PencilMcp: McpModule = {
 	slug: "pencil",
-	displayName: "Pencil",
+	displayName: "MCP Pencil",
 	credentials: [
 		{
 			key: "SERVER_BASE_URL",

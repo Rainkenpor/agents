@@ -16,20 +16,18 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ToolDefinition } from "./types";
 import { logger } from "./util/logger";
 import { documentTools } from "./tools/document.tool";
-import { nodeTools } from "./tools/node.tool";
-import { renderTools } from "./tools/render.tool";
-import { variableTools } from "./tools/variable.tool";
-import { searchTools } from "./tools/search.tool";
+import { pageTools } from "./tools/page.tool";
+import { templateTools } from "./tools/template.tool";
+import { paletteTools } from "./tools/palette.tool";
 
 const RESPONSE_PREVIEW_LENGTH = 200;
 
 // ─── Add new tool arrays here ─────────────────────────────────────────────────
 export const registryTool: ToolDefinition[] = [
 	...documentTools,
-	...nodeTools,
-	...renderTools,
-	...variableTools,
-	...searchTools,
+	...pageTools,
+	...templateTools,
+	...paletteTools,
 ];
 
 function wrapHandler(

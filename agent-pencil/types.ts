@@ -82,5 +82,5 @@ export interface ToolDefinition {
 	/** Zod input schema that validates and documents parameters */
 	inputSchema: ZodRawShape;
 	// biome-ignore lint/suspicious/noExplicitAny: args are validated by Zod inside SDK
-	handler: (args: any) => Promise<ReturnType<typeof ok>>;
+	handler: (args: any) => Promise<ReturnType<typeof ok >>;
 }

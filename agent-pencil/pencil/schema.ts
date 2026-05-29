@@ -1,112 +1,59 @@
 import { z } from "zod";
 
-// Zod permissivo (passthrough): aceptamos cualquier campo extra.
-// Refleja interface.ts del example/.
+export const PageSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	html: z.string(),
+});
+export type Page = z.infer<typeof PageSchema>;
 
-const dim = z.union([z.number(), z.literal("fill_container"), z.literal("hug_content"), z.string()]);
+export const PaletteSchema = z.object({
+	name: z.string(),
+	colors: z.record(z.string()),
+	daisyTheme: z.string().optional(),
+});
+export type Palette = z.infer<typeof PaletteSchema>;
 
-export const StrokeSchema = z
-	.object({
-		align: z.string().optional(),
-		thickness: z.number().optional(),
-		fill: z.string().optional(),
-	})
-	.passthrough();
+export const DocumentSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	pages: z.array(PageSchema),
+	paletteName: z.string().optional(),
+	createdAt: z.string(),
+	updatedAt: z.string(),
+});
+export type PencilDocument = z.infer<typeof DocumentSchema>;
 
-export const EffectSchema = z
-	.object({
-		type: z.string().optional(),
-		shadowType: z.string().optional(),
-		color: z.string().optional(),
-		offset: z.object({ x: z.number(), y: z.number() }).passthrough().optional(),
-		blur: z.number().optional(),
-	})
-	.passthrough();
+export const TemplateSchema = z.object({
+	name: z.string(),
+	pages: z.array(PageSchema),
+	paletteName: z.string().optional(),
+	createdAt: z.string(),
+});
+export type Template = z.infer<typeof TemplateSchema>;
 
-export const NodeSchema: z.ZodType<PenNode> = z.lazy(() =>
-	z
-		.object({
-			type: z.string(),
-			id: z.string(),
-			name: z.string().optional(),
-			x: z.number().optional(),
-			y: z.number().optional(),
-			width: dim.optional(),
-			height: dim.optional(),
-			fill: z.union([z.string(), z.record(z.any())]).optional(),
-			content: z.string().optional(),
-			layout: z.string().optional(),
-			padding: z.array(z.number()).optional(),
-			justifyContent: z.string().optional(),
-			alignItems: z.string().optional(),
-			gap: z.number().optional(),
-			clip: z.boolean().optional(),
-			cornerRadius: z.union([z.number(), z.array(z.number())]).optional(),
-			textGrowth: z.string().optional(),
-			letterSpacing: z.number().optional(),
-			fontFamily: z.string().optional(),
-			fontSize: z.number().optional(),
-			fontWeight: z.string().optional(),
-			iconFontName: z.string().optional(),
-			iconFontFamily: z.string().optional(),
-			stroke: StrokeSchema.optional(),
-			effect: EffectSchema.optional(),
-			ref: z.string().optional(),
-			descendants: z.record(z.any()).optional(),
-			children: z.array(NodeSchema).optional(),
-		})
-		.passthrough(),
-);
+export const OperationSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("doc.created"), doc: DocumentSchema }),
+	z.object({ type: z.literal("doc.renamed"), before: z.string(), after: z.string() }),
+	z.object({ type: z.literal("page.added"), page: PageSchema }),
+	z.object({
+		type: z.literal("page.updated"),
+		pageId: z.string(),
+		before: z.string(),
+		after: z.string(),
+	}),
+	z.object({ type: z.literal("page.deleted"), page: PageSchema }),
+	z.object({ type: z.literal("page.reordered"), order: z.array(z.string()) }),
+	z.object({
+		type: z.literal("palette.applied"),
+		paletteName: z.string().optional(),
+		previous: z.string().optional(),
+	}),
+]);
+export type Operation = z.infer<typeof OperationSchema>;
 
-export const DocSchema = z
-	.object({
-		version: z.string().optional(),
-		variables: z.record(z.any()).optional(),
-		children: z.array(NodeSchema),
-	})
-	.passthrough();
-
-export interface PenNode {
-	type: string;
-	id: string;
-	name?: string;
-	x?: number;
-	y?: number;
-	width?: number | string;
-	height?: number | string;
-	fill?: string | Record<string, unknown>;
-	content?: string;
-	layout?: string;
-	padding?: number[];
-	justifyContent?: string;
-	alignItems?: string;
-	gap?: number;
-	clip?: boolean;
-	cornerRadius?: number | number[];
-	textGrowth?: string;
-	letterSpacing?: number;
-	fontFamily?: string;
-	fontSize?: number;
-	fontWeight?: string;
-	iconFontName?: string;
-	iconFontFamily?: string;
-	stroke?: { align?: string; thickness?: number; fill?: string };
-	effect?: {
-		type?: string;
-		shadowType?: string;
-		color?: string;
-		offset?: { x: number; y: number };
-		blur?: number;
-	};
-	ref?: string;
-	descendants?: Record<string, Partial<PenNode>>;
-	children?: PenNode[];
-	[k: string]: unknown;
-}
-
-export interface PenDoc {
-	version?: string;
-	variables?: Record<string, unknown>;
-	children: PenNode[];
-	[k: string]: unknown;
-}
+export type StoredOperation = {
+	version: number;
+	timestamp: string;
+	op: Operation;
+};

@@ -1,21 +1,20 @@
 {
-  "name": "agent-pencil",
+  "name": "mcp-template",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "bun run server.ts",
-    "render:example": "bun run scripts/render-example.ts"
+    "start": "bun run server.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
-    "@resvg/resvg-js": "^2.6.2",
-    "pdfkit": "^0.15.0",
-    "svg-to-pdfkit": "^0.1.8",
+    "@tailwindcss/cli": "^4.0.0",
+    "daisyui": "^5.0.0",
+    "puppeteer": "^23.0.0",
+    "tailwindcss": "^4.0.0",
     "winston": "^3.19.0",
     "zod": "^3.25.28"
   },
   "devDependencies": {
-    "@types/node": "^25.5.0",
-    "@types/pdfkit": "^0.13.4"
+    "@types/node": "^25.5.0"
   }
 }

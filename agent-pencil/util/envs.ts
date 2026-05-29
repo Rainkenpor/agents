@@ -1,16 +1,20 @@
+import { resolve } from "node:path";
+
 const {
 	SERVER_BASE_URL,
 	SERVER_PORT,
-	PENCIL_LIB_PATHS,
-	PENCIL_OUTPUT_DIR,
+	PENCIL_WORKSPACE_DIR,
+	PENCIL_PUPPETEER_EXECUTABLE,
 } = process.env;
 
 const BASE_URL = SERVER_BASE_URL || "http://localhost:3000";
 const PORT = Number(SERVER_PORT ?? 3000);
+const WORKSPACE_DIR = resolve(PENCIL_WORKSPACE_DIR ?? "./workspace");
+const PUPPETEER_EXECUTABLE = PENCIL_PUPPETEER_EXECUTABLE;
 
 export const envs = {
 	BASE_URL,
 	PORT,
-	PENCIL_LIB_PATHS: PENCIL_LIB_PATHS ?? "",
-	PENCIL_OUTPUT_DIR: PENCIL_OUTPUT_DIR ?? "./output",
+	WORKSPACE_DIR,
+	PUPPETEER_EXECUTABLE,
 };
