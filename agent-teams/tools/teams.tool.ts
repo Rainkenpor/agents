@@ -1,13 +1,17 @@
 // ══════════════════════════════════════════════════════════════════════════
-// Microsoft Teams tools — vía Microsoft Graph (app-only / client_credentials)
+// Microsoft Teams tools
 //
-// Cubre: crear chats, crear grupos (teams), asignar usuarios a los grupos y
-// escribir mensajes en chats y canales de Teams.
+// - Envío de mensajes (chats/canales) → Azure Bot Framework (proactivo, vía
+//   conversation references capturadas en POST /messages). Ver util/bot.ts.
+// - Directorio y gestión de Teams (listar usuarios/chats, crear/listar Teams,
+//   miembros, canales) → Microsoft Graph (app-only / client_credentials), que
+//   no tiene equivalente en Bot Framework.
 // ══════════════════════════════════════════════════════════════════════════
 import z from "zod";
 import { ok } from "../types";
 import type { ToolDefinition } from "../types";
 import { graph } from "../util/graph";
+import { sendMessage, listReferences } from "../util/bot";
 import { envs } from "../util/envs";
 import { emit } from "../hooks";
 
@@ -226,9 +230,13 @@ export const teamsTools: ToolDefinition[] = [
 	{
 		name: "teams_send_chat_message",
 		description:
-			"Escribe (envía) un mensaje en un chat de Teams existente. Soporta texto plano o HTML.",
+			"Escribe (envía) un mensaje proactivo en un chat de Teams vía Azure Bot Framework. Soporta texto plano o HTML. IMPORTANTE: el bot debe haber recibido previamente alguna actividad de esa conversación (que le escriban o ser agregado al chat). Usa teams_list_conversation_refs para descubrir los conversationId disponibles.",
 		inputSchema: {
-			chatId: z.string().describe("ID del chat donde se enviará el mensaje"),
+			conversationId: z
+				.string()
+				.describe(
+					"conversationId del chat (de teams_list_conversation_refs) o el AAD object id del usuario para un chat 1:1 ya conocido por el bot.",
+				),
 			content: z.string().describe("Contenido del mensaje"),
 			contentType: z
 				.enum(["text", "html"])
@@ -236,23 +244,18 @@ export const teamsTools: ToolDefinition[] = [
 				.describe("Formato del contenido (default 'text')"),
 		},
 		handler: async ({
-			chatId,
+			conversationId,
 			content,
 			contentType,
 		}: {
-			chatId: string;
+			conversationId: string;
 			content: string;
 			contentType?: "text" | "html";
 		}) => {
-			const body = {
-				body: { contentType: contentType ?? "text", content },
-			};
-			const data = (await graph.post(`chats/${chatId}/messages`, body)) as {
-				id?: string;
-			};
+			const data = await sendMessage(conversationId, content, contentType ?? "text");
 			await emit("message.sent", {
 				scope: "chat",
-				containerId: chatId,
+				containerId: conversationId,
 				messageId: data.id ?? "",
 			});
 			return ok(data);
@@ -399,10 +402,13 @@ export const teamsTools: ToolDefinition[] = [
 	{
 		name: "teams_send_channel_message",
 		description:
-			"Escribe (envía) un mensaje en un canal de un grupo/Team. Soporta texto plano o HTML.",
+			"Escribe (envía) un mensaje proactivo en un canal de un grupo/Team vía Azure Bot Framework. Soporta texto plano o HTML. IMPORTANTE: el bot debe estar instalado en el Team y haber recibido alguna actividad del canal. Usa teams_list_conversation_refs (conversationType 'channel') para descubrir los conversationId disponibles.",
 		inputSchema: {
-			teamId: z.string().describe("ID del Team/grupo"),
-			channelId: z.string().describe("ID del canal"),
+			conversationId: z
+				.string()
+				.describe(
+					"conversationId del canal (de teams_list_conversation_refs, conversationType 'channel').",
+				),
 			content: z.string().describe("Contenido del mensaje"),
 			contentType: z
 				.enum(["text", "html"])
@@ -410,29 +416,45 @@ export const teamsTools: ToolDefinition[] = [
 				.describe("Formato del contenido (default 'text')"),
 		},
 		handler: async ({
-			teamId,
-			channelId,
+			conversationId,
 			content,
 			contentType,
 		}: {
-			teamId: string;
-			channelId: string;
+			conversationId: string;
 			content: string;
 			contentType?: "text" | "html";
 		}) => {
-			const body = {
-				body: { contentType: contentType ?? "text", content },
-			};
-			const data = (await graph.post(
-				`teams/${teamId}/channels/${channelId}/messages`,
-				body,
-			)) as { id?: string };
+			const data = await sendMessage(conversationId, content, contentType ?? "text");
 			await emit("message.sent", {
 				scope: "channel",
-				containerId: `${teamId}/${channelId}`,
+				containerId: conversationId,
 				messageId: data.id ?? "",
 			});
 			return ok(data);
+		},
+	},
+
+	// ─── Bot Framework: descubrimiento de conversaciones ──────────────────────────
+	{
+		name: "teams_list_conversation_refs",
+		description:
+			"Lista las conversaciones (chats 1:1, group chats y canales) que el Azure Bot conoce — es decir, donde recibió al menos una actividad. Devuelve los conversationId que pueden usarse con teams_send_chat_message / teams_send_channel_message para enviar mensajes proactivos.",
+		inputSchema: {
+			conversationType: z
+				.enum(["personal", "groupChat", "channel"])
+				.optional()
+				.describe("Filtra por tipo de conversación"),
+		},
+		handler: async ({
+			conversationType,
+		}: {
+			conversationType?: "personal" | "groupChat" | "channel";
+		}) => {
+			let refs = listReferences();
+			if (conversationType) {
+				refs = refs.filter((r) => r.conversationType === conversationType);
+			}
+			return ok({ count: refs.length, conversations: refs });
 		},
 	},
 ];

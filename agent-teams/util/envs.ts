@@ -44,13 +44,42 @@ export const envs = {
 	get TOKEN_URL() {
 		return `https://login.microsoftonline.com/${this.TENANT_ID}/oauth2/v2.0/token`;
 	},
+
+	// ─── Azure Bot Framework ────────────────────────────────────────────────────
+	//
+	// El envío de mensajes a Teams ahora se hace vía Bot Framework (no Graph).
+	// Por defecto reutiliza el App Registration de Azure AD (mismo client id/secret),
+	// que es el caso común cuando el Azure Bot apunta a la misma app. Se pueden
+	// sobreescribir con BOT_APP_ID / BOT_APP_PASSWORD si el bot usa otra app.
+
+	/** Microsoft App ID del Azure Bot (default: TEAMS_CLIENT_ID) */
+	get BOT_APP_ID() {
+		return process.env.BOT_APP_ID ?? process.env.TEAMS_CLIENT_ID ?? "";
+	},
+	/** Microsoft App Password/Secret del Azure Bot (default: TEAMS_CLIENT_SECRET) */
+	get BOT_APP_PASSWORD() {
+		return process.env.BOT_APP_PASSWORD ?? process.env.TEAMS_CLIENT_SECRET ?? "";
+	},
+	/** Tipo de app del bot: SingleTenant | MultiTenant | UserAssignedMSI */
+	get BOT_APP_TYPE() {
+		return process.env.BOT_APP_TYPE ?? "SingleTenant";
+	},
+	/** Tenant del bot (relevante para SingleTenant; default: TEAMS_TENANT_ID) */
+	get BOT_TENANT_ID() {
+		return process.env.BOT_TENANT_ID ?? process.env.TEAMS_TENANT_ID ?? "";
+	},
+	/** Ruta del archivo donde se persisten las conversation references del bot */
+	get BOT_REFS_PATH() {
+		return process.env.BOT_REFS_PATH ?? "./.bot-refs.json";
+	},
+
 	/** Puerto del servidor standalone */
 	get PORT() {
 		return Number(process.env.TEAMS_PORT ?? process.env.PORT ?? 3003);
 	},
 };
 
-/** Lanza si falta alguna credencial obligatoria de Teams */
+/** Lanza si falta alguna credencial obligatoria de Teams (Graph) */
 export function assertTeamsCredentials(): void {
 	const missing: string[] = [];
 	if (!envs.TENANT_ID) missing.push("TEAMS_TENANT_ID");
@@ -59,6 +88,21 @@ export function assertTeamsCredentials(): void {
 	if (missing.length > 0) {
 		throw new Error(
 			`Faltan credenciales de Teams en el .env root: ${missing.join(", ")}`,
+		);
+	}
+}
+
+/** Lanza si falta alguna credencial obligatoria del Azure Bot */
+export function assertBotCredentials(): void {
+	const missing: string[] = [];
+	if (!envs.BOT_APP_ID) missing.push("BOT_APP_ID (o TEAMS_CLIENT_ID)");
+	if (!envs.BOT_APP_PASSWORD) missing.push("BOT_APP_PASSWORD (o TEAMS_CLIENT_SECRET)");
+	if (envs.BOT_APP_TYPE === "SingleTenant" && !envs.BOT_TENANT_ID) {
+		missing.push("BOT_TENANT_ID (o TEAMS_TENANT_ID)");
+	}
+	if (missing.length > 0) {
+		throw new Error(
+			`Faltan credenciales del Azure Bot en el .env root: ${missing.join(", ")}`,
 		);
 	}
 }

@@ -45,8 +45,24 @@ export const teamsHooks: HookDefinition[] = [
 			scope: z.string().describe("Ámbito: 'chat' o 'channel'"),
 			containerId: z
 				.string()
-				.describe("ID del chat, o '<teamId>/<channelId>' para canales"),
+				.describe("conversationId del chat o canal destino"),
 			messageId: z.string().describe("ID del mensaje enviado"),
+		},
+	},
+	{
+		name: "message.received",
+		description:
+			"Se dispara cuando el Azure Bot recibe un mensaje entrante de Teams (vía el endpoint /messages)",
+		payloadSchema: {
+			conversationId: z.string().describe("conversationId de origen"),
+			conversationType: z
+				.string()
+				.describe("Tipo: personal | groupChat | channel"),
+			from: z.string().describe("displayName del remitente"),
+			aadObjectId: z
+				.string()
+				.describe("AAD object id del remitente (si disponible)"),
+			text: z.string().describe("Texto del mensaje recibido"),
 		},
 	},
 ];
