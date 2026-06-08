@@ -12,7 +12,9 @@
     "agent-unitTest",
     "agent-datadog",
     "agent-pencil",
-    "agent-teams"
+    "agent-teams",
+    "agent-elastic",
+    "agent-git"
   ],
   "scripts": {
     "start": "bun run --filter agent-server --elide-lines 0 start"

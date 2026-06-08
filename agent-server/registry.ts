@@ -8,6 +8,8 @@ import { unitTestMCP } from "../agent-unitTest/index.ts";
 import { datadogMcp } from "./../agent-datadog/index";
 import { PencilMcp } from "../agent-pencil/index.ts";
 import { teamsMcp } from "../agent-teams/index.ts";
+import { elasticMcp } from "../agent-elastic/index.ts";
+import { gitMcp } from "../agent-git/index.ts";
 
 /**
  * Lista de todos los MCPs registrados en el servidor central.
@@ -26,4 +28,6 @@ export const mcpModules: McpModule[] = [
 	datadogMcp,
 	PencilMcp,
 	teamsMcp,
+	elasticMcp,
+	gitMcp,
 ];
