@@ -14,7 +14,8 @@
     "agent-pencil",
     "agent-teams",
     "agent-elastic",
-    "agent-git"
+    "agent-git",
+    "agent-sonar"
   ],
   "scripts": {
     "start": "bun run --filter agent-server --elide-lines 0 start"

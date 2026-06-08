@@ -10,6 +10,7 @@ import { PencilMcp } from "../agent-pencil/index.ts";
 import { teamsMcp } from "../agent-teams/index.ts";
 import { elasticMcp } from "../agent-elastic/index.ts";
 import { gitMcp } from "../agent-git/index.ts";
+import { sonarMcp } from "../agent-sonar/index.ts";
 
 /**
  * Lista de todos los MCPs registrados en el servidor central.
@@ -30,4 +31,5 @@ export const mcpModules: McpModule[] = [
 	teamsMcp,
 	elasticMcp,
 	gitMcp,
+	sonarMcp,
 ];
