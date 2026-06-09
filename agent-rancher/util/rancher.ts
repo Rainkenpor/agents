@@ -168,11 +168,14 @@ export async function getPodLogs(
 	});
 	const target = url.toString();
 	logger.info(`[rancher] → GET (logs) ${target}`);
+	// El endpoint de logs del kube-apiserver responde 406 si el Accept no es uno
+	// que pueda satisfacer. kubectl no restringe el Accept (usa */*) y así el
+	// subrecurso /log devuelve el texto plano. Replicamos ese comportamiento.
 	const res = await fetch(
 		target,
 		fetchInit(inst, {
 			method: "GET",
-			headers: { Authorization: `Bearer ${inst.token}`, Accept: "text/plain" },
+			headers: { Authorization: `Bearer ${inst.token}`, Accept: "*/*" },
 		}),
 	);
 	const text = await res.text();
