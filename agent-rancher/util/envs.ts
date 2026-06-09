@@ -18,6 +18,11 @@ export interface RancherInstance {
 	url: string;
 	/** Token de API de Rancher; se envía como `Authorization: Bearer <token>` */
 	token: string;
+	/**
+	 * Si true, no se verifica el certificado TLS de la instancia.
+	 * Útil para instancias internas con certificados self-signed / CA interna.
+	 */
+	insecureTLS?: boolean;
 }
 
 const { RANCHER_INSTANCES, SERVER_PORT, PORT } = process.env;
@@ -44,8 +49,12 @@ function parseInstances(raw: string | undefined): Record<string, RancherInstance
 			typeof (value as RancherInstance).url === "string" &&
 			typeof (value as RancherInstance).token === "string"
 		) {
-			const { url, token } = value as RancherInstance;
-			result[name] = { url: url.replace(/\/$/, ""), token };
+			const { url, token, insecureTLS } = value as RancherInstance;
+			result[name] = {
+				url: url.replace(/\/$/, ""),
+				token,
+				insecureTLS: insecureTLS === true,
+			};
 		} else {
 			logger.info(`[rancher] instancia "${name}" inválida: falta url o token`);
 		}

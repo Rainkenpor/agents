@@ -35,6 +35,18 @@ function authHeaders(token: string): Record<string, string> {
 	};
 }
 
+/**
+ * Opciones extra de fetch según la instancia. Para instancias con
+ * `insecureTLS: true` (certificados self-signed / CA interna) se desactiva la
+ * verificación del certificado vía la opción `tls` de Bun.
+ */
+function fetchInit(inst: RancherInstance, init: RequestInit): RequestInit {
+	if (inst.insecureTLS) {
+		return { ...init, tls: { rejectUnauthorized: false } } as RequestInit;
+	}
+	return init;
+}
+
 function withParams(url: URL, params?: Record<string, unknown>): URL {
 	if (params) {
 		for (const [key, value] of Object.entries(params)) {
@@ -83,7 +95,10 @@ export async function rancherGet(
 	const inst = resolveInstance(instance);
 	const url = steveUrl(inst, cluster, path, params).toString();
 	logger.info(`[rancher] → GET ${url}`);
-	const res = await fetch(url, { method: "GET", headers: authHeaders(inst.token) });
+	const res = await fetch(
+		url,
+		fetchInit(inst, { method: "GET", headers: authHeaders(inst.token) }),
+	);
 	return parseResponse(res, url);
 }
 
@@ -97,11 +112,14 @@ export async function rancherPut(
 	const inst = resolveInstance(instance);
 	const url = steveUrl(inst, cluster, path).toString();
 	logger.info(`[rancher] → PUT ${url}`);
-	const res = await fetch(url, {
-		method: "PUT",
-		headers: { ...authHeaders(inst.token), "Content-Type": "application/json" },
-		body: JSON.stringify(body),
-	});
+	const res = await fetch(
+		url,
+		fetchInit(inst, {
+			method: "PUT",
+			headers: { ...authHeaders(inst.token), "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		}),
+	);
 	return parseResponse(res, url);
 }
 
@@ -115,7 +133,10 @@ export async function normanGet(
 	const clean = path.replace(/^\//, "");
 	const url = withParams(new URL(`${inst.url}/v3/${clean}`), params).toString();
 	logger.info(`[rancher] → GET ${url}`);
-	const res = await fetch(url, { method: "GET", headers: authHeaders(inst.token) });
+	const res = await fetch(
+		url,
+		fetchInit(inst, { method: "GET", headers: authHeaders(inst.token) }),
+	);
 	return parseResponse(res, url);
 }
 
@@ -147,10 +168,13 @@ export async function getPodLogs(
 	});
 	const target = url.toString();
 	logger.info(`[rancher] → GET (logs) ${target}`);
-	const res = await fetch(target, {
-		method: "GET",
-		headers: { Authorization: `Bearer ${inst.token}`, Accept: "text/plain" },
-	});
+	const res = await fetch(
+		target,
+		fetchInit(inst, {
+			method: "GET",
+			headers: { Authorization: `Bearer ${inst.token}`, Accept: "text/plain" },
+		}),
+	);
 	const text = await res.text();
 	if (!res.ok) {
 		logger.info(`[rancher] ✗ ${res.status} ${target} :: ${text.slice(0, 200)}`);
