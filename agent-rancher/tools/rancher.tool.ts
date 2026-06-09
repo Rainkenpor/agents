@@ -14,6 +14,14 @@ import {
 	normanGet,
 	getPodLogs,
 } from "../util/rancher";
+import {
+	collectionData,
+	slimCluster,
+	slimNamespace,
+	slimDeployment,
+	slimPod,
+	slimDeploymentDetail,
+} from "../util/slim";
 
 const instance = z
 	.string()
@@ -23,6 +31,13 @@ const cluster = z
 	.string()
 	.optional()
 	.describe("ID del cluster dentro de la instancia (default: 'local')");
+
+const raw = z
+	.boolean()
+	.optional()
+	.describe(
+		"Si true, devuelve la respuesta completa de Rancher sin depurar (mucho más grande). Default: false.",
+	);
 
 /** Tipo mínimo de un deployment de la Steve API que mutamos */
 interface SteveDeployment {
@@ -38,100 +53,128 @@ export const rancherTools: ToolDefinition[] = [
 	{
 		name: "rancher_list_clusters",
 		description:
-			"Lista los clusters disponibles en una instancia de Rancher (Norman API /v3/clusters).",
-		inputSchema: { instance },
-		handler: async ({ instance }: { instance: string }) => {
+			"Lista los clusters disponibles en una instancia de Rancher (id, nombre, estado, versión, nodos).",
+		inputSchema: { instance, raw },
+		handler: async ({ instance, raw }: { instance: string; raw?: boolean }) => {
 			const data = await normanGet(instance, "clusters");
-			return ok(data);
+			if (raw) return ok(data);
+			const items = collectionData(data).map(slimCluster);
+			return ok({ count: items.length, clusters: items });
 		},
 	},
 	{
 		name: "rancher_list_namespaces",
 		description:
-			"Lista los namespaces de un cluster en una instancia de Rancher.",
-		inputSchema: { instance, cluster },
+			"Lista los namespaces de un cluster (nombre, estado, proyecto, antigüedad).",
+		inputSchema: { instance, cluster, raw },
 		handler: async ({
 			instance,
 			cluster,
-		}: { instance: string; cluster?: string }) => {
+			raw,
+		}: { instance: string; cluster?: string; raw?: boolean }) => {
 			const data = await rancherGet(instance, cluster ?? "local", "namespaces");
-			return ok(data);
+			if (raw) return ok(data);
+			const items = collectionData(data).map(slimNamespace);
+			return ok({ count: items.length, namespaces: items });
 		},
 	},
 	{
 		name: "rancher_list_deployments",
 		description:
-			"Lista los deployments de un cluster. Opcionalmente filtra por namespace.",
+			"Lista los deployments de un cluster (nombre, namespace, réplicas, estado, imágenes). Recomendado filtrar por namespace.",
 		inputSchema: {
 			instance,
 			cluster,
 			namespace: z
 				.string()
 				.optional()
-				.describe("Namespace para filtrar (ej. 'psi'). Si se omite, lista todos."),
+				.describe("Namespace para filtrar (ej. 'psi'). Si se omite, lista TODO el cluster."),
+			raw,
 		},
 		handler: async ({
 			instance,
 			cluster,
 			namespace,
-		}: { instance: string; cluster?: string; namespace?: string }) => {
-			const data = await rancherGet(
-				instance,
-				cluster ?? "local",
-				"apps.deployments",
-				namespace ? { "filter[metadata.namespace]": namespace } : undefined,
-			);
-			return ok(data);
+			raw,
+		}: {
+			instance: string;
+			cluster?: string;
+			namespace?: string;
+			raw?: boolean;
+		}) => {
+			// La Steve API filtra por namespace en la ruta: /v1/apps.deployments/<ns>
+			const path = namespace
+				? `apps.deployments/${namespace}`
+				: "apps.deployments";
+			const data = await rancherGet(instance, cluster ?? "local", path);
+			if (raw) return ok(data);
+			const items = collectionData(data).map(slimDeployment);
+			return ok({ count: items.length, namespace, deployments: items });
 		},
 	},
 	{
 		name: "rancher_get_deployment",
 		description:
-			"Obtiene el detalle de un deployment (estado, réplicas, imagen, anotaciones).",
+			"Obtiene el detalle de un deployment (estado, réplicas, contenedores/imágenes, condiciones, anotaciones).",
 		inputSchema: {
 			instance,
 			cluster,
 			namespace: z.string().describe("Namespace del deployment (ej. 'psi')"),
 			name: z.string().describe("Nombre del deployment (ej. 'psi-worker')"),
+			raw,
 		},
 		handler: async ({
 			instance,
 			cluster,
 			namespace,
 			name,
-		}: { instance: string; cluster?: string; namespace: string; name: string }) => {
+			raw,
+		}: {
+			instance: string;
+			cluster?: string;
+			namespace: string;
+			name: string;
+			raw?: boolean;
+		}) => {
 			const data = await rancherGet(
 				instance,
 				cluster ?? "local",
 				`apps.deployments/${namespace}/${name}`,
 			);
-			return ok(data);
+			if (raw) return ok(data);
+			return ok(slimDeploymentDetail(data as Record<string, unknown>));
 		},
 	},
 	{
 		name: "rancher_list_pods",
 		description:
-			"Lista los pods de un cluster. Opcionalmente filtra por namespace.",
+			"Lista los pods de un cluster (nombre, namespace, estado, reinicios, nodo, IP, imágenes). Recomendado filtrar por namespace.",
 		inputSchema: {
 			instance,
 			cluster,
 			namespace: z
 				.string()
 				.optional()
-				.describe("Namespace para filtrar (ej. 'psi'). Si se omite, lista todos."),
+				.describe("Namespace para filtrar (ej. 'psi'). Si se omite, lista TODO el cluster."),
+			raw,
 		},
 		handler: async ({
 			instance,
 			cluster,
 			namespace,
-		}: { instance: string; cluster?: string; namespace?: string }) => {
-			const data = await rancherGet(
-				instance,
-				cluster ?? "local",
-				"pods",
-				namespace ? { "filter[metadata.namespace]": namespace } : undefined,
-			);
-			return ok(data);
+			raw,
+		}: {
+			instance: string;
+			cluster?: string;
+			namespace?: string;
+			raw?: boolean;
+		}) => {
+			// La Steve API filtra por namespace en la ruta: /v1/pods/<ns>
+			const path = namespace ? `pods/${namespace}` : "pods";
+			const data = await rancherGet(instance, cluster ?? "local", path);
+			if (raw) return ok(data);
+			const items = collectionData(data).map(slimPod);
+			return ok({ count: items.length, namespace, pods: items });
 		},
 	},
 	{
@@ -221,7 +264,13 @@ export const rancherTools: ToolDefinition[] = [
 				name,
 				restartedAt,
 			});
-			return ok({ restarted: true, namespace, name, restartedAt, deployment: updated });
+			return ok({
+				restarted: true,
+				namespace,
+				name,
+				restartedAt,
+				deployment: slimDeploymentDetail(updated as Record<string, unknown>),
+			});
 		},
 	},
 	{
@@ -274,7 +323,7 @@ export const rancherTools: ToolDefinition[] = [
 				name,
 				replicas,
 				previousReplicas,
-				deployment: updated,
+				deployment: slimDeploymentDetail(updated as Record<string, unknown>),
 			});
 		},
 	},
