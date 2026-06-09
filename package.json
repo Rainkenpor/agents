@@ -15,7 +15,8 @@
     "agent-teams",
     "agent-elastic",
     "agent-git",
-    "agent-sonar"
+    "agent-sonar",
+    "agent-rancher"
   ],
   "scripts": {
     "start": "bun run --filter agent-server --elide-lines 0 start"
