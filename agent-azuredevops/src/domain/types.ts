@@ -20,7 +20,7 @@ export interface PipelineInfo {
 
 export interface HelmValuesInput {
   appRepoName: string;
-  appProjectName: string;
+  acrNamespace: string;
   replicaCount: number;
   hasService: boolean;
   servicePort: number;

@@ -54,7 +54,6 @@ export const azureDevOpsTools: ToolDefinition[] = [
     inputSchema: {
       project: z.string().describe("Nombre exacto del proyecto de Azure DevOps donde viven ambos repositorios."),
       repo_name: z.string().describe("Nombre del repositorio de la aplicacion en kebab-case (ej: 'mi-servicio'). Debe existir en el proyecto."),
-      app_project_name: z.string().describe("Nombre del proyecto de la aplicacion; agrupa la imagen en el container registry y prefija el secreto de Key Vault (ej: 'message-bus', 'distelsa-app', 'pos', 'oms')."),
       organization: z.string().optional().describe(`Nombre de la organizacion en Azure DevOps. Si se omite, se usa '${getDefaultOrganization()}'.`),
       replica_count: z.number().int().positive().default(1).describe("Numero inicial de replicas del Deployment de Kubernetes. Default: 1."),
       has_service: z.boolean().describe("Si es true, el values.yaml incluye la seccion Service habilitada. Requerido para que la app sea accesible dentro del cluster."),
@@ -69,7 +68,6 @@ export const azureDevOpsTools: ToolDefinition[] = [
       pat,
       project,
       repo_name,
-      app_project_name,
       organization,
       replica_count,
       has_service,
@@ -83,7 +81,6 @@ export const azureDevOpsTools: ToolDefinition[] = [
       pat: string; // inyectado desde el header mcp-pat
       project: string;
       repo_name: string;
-      app_project_name: string;
       organization?: string;
       replica_count: number;
       has_service: boolean;
@@ -99,7 +96,6 @@ export const azureDevOpsTools: ToolDefinition[] = [
       const result = await createSelfServiceRepositoryUseCase.execute({
         connection: buildConnection(organization, project, pat),
         repoName: repo_name,
-        appProjectName: app_project_name,
         replicaCount: replica_count,
         hasService: has_service,
         servicePort: service_port ?? 80,
