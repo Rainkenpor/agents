@@ -7,7 +7,7 @@ const BRANCHES = ["develop", "QA", "staging", "main"] as const;
 export interface CreateSelfServiceRepositoryUseCaseInput {
   connection: AzureConnection;
   repoName: string;
-  imageProject: string;
+  appProjectName: string;
   replicaCount: number;
   hasService: boolean;
   servicePort: number;
@@ -38,7 +38,7 @@ export class CreateSelfServiceRepositoryUseCase {
     for (const branch of BRANCHES) {
       const yaml = this.helmValuesGenerator.generate({
         appRepoName: input.repoName,
-        imageProject: input.imageProject,
+        appProjectName: input.appProjectName,
         replicaCount: input.replicaCount,
         hasService: input.hasService,
         servicePort: input.servicePort,
