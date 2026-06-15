@@ -7,7 +7,6 @@
   "organization": "grupodistelsa",
   "project": "plataforma",
   "repo_name": "mi-api",
-  "image_project": "plataforma",
   "pat": "YOUR_PAT",
   "replica_count": 1,
   "has_service": true,
