@@ -25,7 +25,6 @@ import {
 	listWebhookSubscriptions,
 } from "./hooks.ts";
 import { envs } from "./util/envs.ts";
-import { processActivity } from "./util/bot.ts";
 
 // Carga credenciales del .env root (igual que agent-server)
 dotenv.config({ path: "../.env" });
@@ -118,32 +117,6 @@ const httpServer = createServer(
 	async (req: IncomingMessage, res: ServerResponse) => {
 		const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
 
-		// ── Bot Framework: endpoint de mensajería de Azure Bot Service ──────────────
-		if (
-			(pathname === "/messages" || pathname === "/hooks/messages") &&
-			(req.method ?? "GET") === "POST"
-		) {
-			const raw = await readBody(req);
-			let activity: unknown;
-			try {
-				activity = JSON.parse(raw.toString());
-			} catch {
-				res.writeHead(400, { "Content-Type": "application/json" });
-				res.end(JSON.stringify({ error: "Invalid JSON activity" }));
-				return;
-			}
-			try {
-				await processActivity(req, res, activity);
-			} catch (err) {
-				console.error("[teams] bot error:", err);
-				if (!res.headersSent) {
-					res.writeHead(500, { "Content-Type": "application/json" });
-					res.end(JSON.stringify({ error: String(err) }));
-				}
-			}
-			return;
-		}
-
 		if (pathname.startsWith("/hooks")) {
 			await handleHooksRoute(req, res);
 			return;
@@ -188,7 +161,6 @@ const httpServer = createServer(
 httpServer.listen(PORT, () => {
 	console.log(`✓ Teams MCP server  → http://localhost:${PORT}/mcp`);
 	console.log(`✓ Hooks API         → http://localhost:${PORT}/hooks`);
-	console.log(`✓ Bot messaging     → http://localhost:${PORT}/messages`);
 	console.log(
 		`  Tenant: ${envs.TENANT_ID || "(falta TEAMS_TENANT_ID en root .env)"}`,
 	);

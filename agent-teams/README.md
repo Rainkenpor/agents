@@ -10,39 +10,37 @@ escribir mensajes** en chats y canales de Microsoft Teams, vía
 Se leen del `.env` de la carpeta **root** del monorepo (agent-server las carga
 con `dotenv.config({ path: "../.env" })`):
 
-| Variable | Requerida | Descripción |
-|----------|-----------|-------------|
-| `TEAMS_TENANT_ID` | ✅ | Directory (tenant) ID de Azure AD |
-| `TEAMS_CLIENT_ID` | ✅ | Application (client) ID de la app registrada |
-| `TEAMS_CLIENT_SECRET` | ✅ | Client secret de la app registrada |
-| `TEAMS_APP_USER_ID` | ❌ | Usuario asociado a la app (UPN o ID). Se incluye automáticamente como miembro al crear chats y como owner al crear Teams |
-| `GRAPH_BASE_URL` | ❌ | Base de Graph (default `https://graph.microsoft.com/v1.0`) |
+| Variable              | Requerida | Descripción                                                |
+| --------------------- | --------- | ---------------------------------------------------------- |
+| `TEAMS_TENANT_ID`     | ✅        | Directory (tenant) ID de Azure AD                          |
+| `TEAMS_CLIENT_ID`     | ✅        | Application (client) ID de la app registrada               |
+| `TEAMS_CLIENT_SECRET` | ✅        | Client secret de la app registrada                         |
+| `GRAPH_BASE_URL`      | ❌        | Base de Graph (default `https://graph.microsoft.com/v1.0`) |
 
 > **Flujo app-only:** Microsoft Graph no acepta crear chats/Teams sin un usuario
-> real. Configura `TEAMS_APP_USER_ID` con el usuario/service account de la app;
 > se agregará automáticamente (sin duplicar) a `teams_create_chat` y
 > `teams_create_team`, además de los miembros/owners que pases.
 
 ## Tools
 
-| Tool | Descripción |
-|------|-------------|
-| `teams_list_users` | Lista usuarios del directorio (para obtener IDs/UPN) |
-| `teams_create_chat` | Crea un chat `oneOnOne` o `group` |
-| `teams_add_chat_member` | Agrega un usuario a un chat |
-| `teams_send_chat_message` | Escribe un mensaje en un chat |
-| `teams_list_chat_messages` | Lista mensajes de un chat |
-| `teams_create_team` | Crea un grupo/Team (requiere owner) |
-| `teams_list_teams` | Lista los grupos/Teams existentes |
-| `teams_add_team_member` | Asigna un usuario a un grupo/Team (member/owner) |
-| `teams_list_channels` | Lista canales de un Team |
-| `teams_send_channel_message` | Escribe un mensaje en un canal |
+| Tool                         | Descripción                                          |
+| ---------------------------- | ---------------------------------------------------- |
+| `teams_list_users`           | Lista usuarios del directorio (para obtener IDs/UPN) |
+| `teams_create_chat`          | Crea un chat `oneOnOne` o `group`                    |
+| `teams_add_chat_member`      | Agrega un usuario a un chat                          |
+| `teams_send_chat_message`    | Escribe un mensaje en un chat                        |
+| `teams_list_chat_messages`   | Lista mensajes de un chat                            |
+| `teams_create_team`          | Crea un grupo/Team (requiere owner)                  |
+| `teams_list_teams`           | Lista los grupos/Teams existentes                    |
+| `teams_add_team_member`      | Asigna un usuario a un grupo/Team (member/owner)     |
+| `teams_list_channels`        | Lista canales de un Team                             |
+| `teams_send_channel_message` | Escribe un mensaje en un canal                       |
 
 ## Hooks
 
 `chat.created`, `team.created`, `member.added`, `message.sent`.
 
-## Permisos de Microsoft Graph (Azure AD → API permissions, tipo *Application*)
+## Permisos de Microsoft Graph (Azure AD → API permissions, tipo _Application_)
 
 La app debe tener consentidos los permisos correspondientes a las operaciones:
 

@@ -3,12 +3,10 @@
  *
  * Exporta teamsMcp: McpModule para el servidor centralizado.
  *
- * - Mensajería (enviar a chats/canales) → Azure Bot Framework (proactivo).
- *   El bot recibe actividades de Teams en POST /teams/hooks/messages y guarda
- *   las conversation references para reusarlas al enviar.
- * - Directorio y gestión de Teams (listar usuarios/chats, crear/listar Teams,
- *   miembros, canales) → Microsoft Graph (app-only), que no tiene equivalente
- *   en Bot Framework.
+ * - Mensajería (enviar a chats/canales) → Azure Bot Framework vía
+ *   botframework-connector (sendToConversation a un conversationId existente).
+ * - Directorio y listado de chats → Microsoft Graph (app-only), que no tiene
+ *   equivalente en Bot Framework.
  *
  * Las credenciales (TEAMS_TENANT_ID / TEAMS_CLIENT_ID / TEAMS_CLIENT_SECRET, y
  * opcionalmente BOT_APP_ID / BOT_APP_PASSWORD) se leen del .env root del monorepo.
@@ -19,7 +17,6 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { McpModule } from "../agent-server/types.ts";
 import { initializeTools, registryTool } from "./tools.ts";
-import { processActivity } from "./util/bot.ts";
 import {
 	registryHook,
 	getHookCatalog,
@@ -77,30 +74,6 @@ async function hooksHandler(
 	const pathname =
 		"/" + url.pathname.replace(/^\/[^/]+/, "").replace(/^\//, "") || "/";
 	const method = req.method ?? "GET";
-
-	// POST /hooks/messages  →  endpoint de mensajería del Azure Bot Service
-	if (pathname.endsWith("/messages") && method === "POST") {
-		const chunks: Buffer[] = [];
-		for await (const chunk of req) chunks.push(chunk as Buffer);
-		let activity: unknown;
-		try {
-			activity = JSON.parse(Buffer.concat(chunks).toString());
-		} catch {
-			res.writeHead(400, { "Content-Type": "application/json" });
-			res.end(JSON.stringify({ error: "Invalid JSON activity" }));
-			return;
-		}
-		try {
-			await processActivity(req, res, activity);
-		} catch (err) {
-			console.error("[teams] bot error:", err);
-			if (!res.headersSent) {
-				res.writeHead(500, { "Content-Type": "application/json" });
-				res.end(JSON.stringify({ error: String(err) }));
-			}
-		}
-		return;
-	}
 
 	// GET /hooks  →  catálogo completo con payload schemas (discovery)
 	if (

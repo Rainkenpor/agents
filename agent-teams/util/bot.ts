@@ -1,265 +1,113 @@
-// ─── Cliente de Azure Bot Framework ───────────────────────────────────────────
+// ─── Cliente de Azure Bot Framework (botframework-connector) ──────────────────
 //
-// Sustituye el envío de mensajes vía Microsoft Graph por el canal soportado de
-// Microsoft Teams: el Azure Bot Service (Bot Framework).
+// Envío de mensajes a Microsoft Teams vía el REST connector de Bot Framework.
 //
-// Flujo:
-//   1. Azure Bot Service entrega cada actividad de Teams a POST /messages
-//      (en agent-server: /teams/hooks/messages).
-//   2. `processActivity()` autentica la actividad con CloudAdapter y, en el turn,
-//      guarda la "conversation reference" (serviceUrl, conversationId, tenantId…).
-//   3. Las tools envían mensajes proactivos reusando esas references con
-//      `adapter.continueConversationAsync()`.
-//
-// Las references se persisten a disco (BOT_REFS_PATH) para sobrevivir reinicios.
+// A diferencia del envío proactivo con botbuilder (que requiere capturar antes
+// una "conversation reference" desde el endpoint /messages), aquí se envía
+// directamente a un conversationId YA EXISTENTE con
+// `ConnectorClient.sendToConversation`. Solo se necesita:
+//   - Credenciales del Azure Bot (BOT_APP_ID / BOT_APP_PASSWORD / BOT_TENANT_ID).
+//   - El conversationId del chat o canal donde el bot ya está instalado.
+//   - El serviceUrl regional de Teams (TEAMS_SERVICE_URL).
 
-import {
-	CloudAdapter,
-	ConfigurationServiceClientCredentialFactory,
-	createBotFrameworkAuthenticationFromConfiguration,
-	TurnContext,
-	type Activity,
-	type ConversationReference,
-} from "botbuilder";
-import { readFileSync, writeFileSync } from "node:fs";
-import type { IncomingMessage, ServerResponse } from "node:http";
+import { MicrosoftAppCredentials, ConnectorClient } from "botframework-connector";
 import { envs, assertBotCredentials } from "./envs";
 import { logger } from "./logger";
-import { emit } from "../hooks";
 
-// ─── Conversation reference store ──────────────────────────────────────────────
+let connectorSingleton: ConnectorClient | null = null;
 
-export type StoredRef = {
-	/** ID de la conversación (chat 1:1, group chat o canal) en Bot Framework */
-	conversationId: string;
-	/** personal | groupChat | channel */
-	conversationType?: string;
-	/** Nombre/topic de la conversación, si aplica */
-	name?: string;
-	/** AAD object id del último usuario que interactuó (útil para 1:1) */
-	aadObjectId?: string;
-	/** displayName del último usuario que interactuó */
-	fromName?: string;
-	serviceUrl?: string;
-	tenantId?: string;
-	/** Reference completa de Bot Framework (lo que se reusa para enviar) */
-	reference: Partial<ConversationReference>;
-	updatedAt: string;
-};
-
-const refs = new Map<string, StoredRef>();
-/** Índice aadObjectId → conversationId (chats 1:1) para envíos por usuario */
-const userIndex = new Map<string, string>();
-
-function persist(): void {
-	try {
-		writeFileSync(
-			envs.BOT_REFS_PATH,
-			JSON.stringify([...refs.values()], null, 2),
-			"utf8",
-		);
-	} catch (err) {
-		logger.error(`[bot] no se pudieron persistir refs: ${String(err)}`);
-	}
-}
-
-function loadRefs(): void {
-	try {
-		const raw = readFileSync(envs.BOT_REFS_PATH, "utf8");
-		const list = JSON.parse(raw) as StoredRef[];
-		for (const r of list) {
-			refs.set(r.conversationId, r);
-			if (r.conversationType === "personal" && r.aadObjectId) {
-				userIndex.set(r.aadObjectId.toLowerCase(), r.conversationId);
-			}
-		}
-		logger.info(`[bot] ${refs.size} conversation references cargadas`);
-	} catch {
-		// archivo inexistente o vacío: arrancamos sin refs.
-	}
-}
-
-loadRefs();
-
-function storeReference(activity: Partial<Activity>): void {
-	const reference = TurnContext.getConversationReference(activity);
-	const conversationId = reference.conversation?.id;
-	if (!conversationId) return;
-
-	const aadObjectId = activity.from?.aadObjectId;
-	const stored: StoredRef = {
-		conversationId,
-		conversationType: reference.conversation?.conversationType,
-		name: reference.conversation?.name,
-		aadObjectId,
-		fromName: activity.from?.name,
-		serviceUrl: reference.serviceUrl,
-		tenantId:
-			(activity.conversation as { tenantId?: string } | undefined)?.tenantId ??
-			(activity.channelData as { tenant?: { id?: string } } | undefined)?.tenant
-				?.id,
-		reference,
-		updatedAt: new Date().toISOString(),
-	};
-	refs.set(conversationId, stored);
-	if (stored.conversationType === "personal" && aadObjectId) {
-		userIndex.set(aadObjectId.toLowerCase(), conversationId);
-	}
-	persist();
-	logger.info(
-		`[bot] ref guardada: ${conversationId} (${stored.conversationType ?? "?"})`,
-	);
-}
-
-// ─── Adapter ───────────────────────────────────────────────────────────────────
-
-let adapterSingleton: CloudAdapter | null = null;
-
-function getAdapter(): CloudAdapter {
-	if (adapterSingleton) return adapterSingleton;
+/** Devuelve un ConnectorClient autenticado con las credenciales del bot (singleton). */
+function getConnector(): ConnectorClient {
+	if (connectorSingleton) return connectorSingleton;
 	assertBotCredentials();
 
-	const credentialsFactory = new ConfigurationServiceClientCredentialFactory({
-		MicrosoftAppId: envs.BOT_APP_ID,
-		MicrosoftAppPassword: envs.BOT_APP_PASSWORD,
-		MicrosoftAppType: envs.BOT_APP_TYPE,
-		MicrosoftAppTenantId: envs.BOT_TENANT_ID,
+	const credentials = new MicrosoftAppCredentials(
+		envs.BOT_APP_ID,
+		envs.BOT_APP_PASSWORD,
+		envs.BOT_TENANT_ID,
+	);
+	// Necesario para que el SDK confíe en el endpoint de Teams.
+	MicrosoftAppCredentials.trustServiceUrl(envs.SERVICE_URL);
+
+	connectorSingleton = new ConnectorClient(credentials, {
+		baseUri: envs.SERVICE_URL,
 	});
-
-	const auth = createBotFrameworkAuthenticationFromConfiguration(
-		null,
-		credentialsFactory,
-	);
-
-	const adapter = new CloudAdapter(auth);
-	adapter.onTurnError = async (context, error) => {
-		logger.error(`[bot] turn error: ${String(error)}`);
-		try {
-			await context.sendActivity("El bot encontró un error procesando la actividad.");
-		} catch {
-			// noop
-		}
-	};
-	adapterSingleton = adapter;
-	return adapter;
+	logger.info(`[bot] ConnectorClient inicializado (serviceUrl: ${envs.SERVICE_URL})`);
+	return connectorSingleton;
 }
 
-// ─── Ingesta del endpoint /messages ────────────────────────────────────────────
-
-/**
- * Procesa una actividad entrante de Azure Bot Service. Adapta el req/res de
- * node:http a la interfaz que espera CloudAdapter y guarda la conversation
- * reference en cada turn. Emite el hook `message.received` para mensajes de texto.
- */
-export async function processActivity(
-	req: IncomingMessage,
-	res: ServerResponse,
-	activity: unknown,
-): Promise<void> {
-	const adapter = getAdapter();
-
-	// Shims compatibles con la interfaz Request/Response de botbuilder.
-	const reqShim = {
-		body: activity,
-		headers: req.headers,
-		method: req.method,
+/** Construye la actividad de mensaje a enviar (texto plano o HTML). */
+function buildActivity(
+	content: string,
+	contentType: "text" | "html",
+	recipientId?: string,
+) {
+	return {
+		type: "message",
+		from: { id: envs.BOT_APP_ID, name: envs.BOT_NAME },
+		...(recipientId ? { recipient: { id: recipientId } } : {}),
+		text: content,
+		...(contentType === "html" ? { textFormat: "xml" } : {}),
 	};
-	const resShim = {
-		status(code: number) {
-			res.statusCode = code;
-			return this;
-		},
-		send(body?: unknown) {
-			if (body === undefined || body === null) res.end();
-			else res.end(typeof body === "string" ? body : JSON.stringify(body));
-			return this;
-		},
-		end() {
-			res.end();
-			return this;
-		},
-		set(field: string, value: string) {
-			res.setHeader(field, value);
-			return this;
-		},
-		header(field: string, value: string) {
-			res.setHeader(field, value);
-			return this;
-		},
-	};
-
-	await adapter.process(
-		// biome-ignore lint/suspicious/noExplicitAny: shim compatible con botbuilder Request
-		reqShim as any,
-		// biome-ignore lint/suspicious/noExplicitAny: shim compatible con botbuilder Response
-		resShim as any,
-		async (context) => {
-			storeReference(context.activity);
-
-			if (context.activity.type === "message") {
-				await emit("message.received", {
-					conversationId: context.activity.conversation?.id ?? "",
-					conversationType:
-						context.activity.conversation?.conversationType ?? "",
-					from: context.activity.from?.name ?? "",
-					aadObjectId: context.activity.from?.aadObjectId ?? "",
-					text: context.activity.text ?? "",
-				});
-			}
-		},
-	);
-}
-
-// ─── Envío proactivo ───────────────────────────────────────────────────────────
-
-/** Resuelve la StoredRef a partir de un conversationId o (fallback) un AAD id. */
-function resolveRef(conversationOrUserId: string): StoredRef {
-	const direct = refs.get(conversationOrUserId);
-	if (direct) return direct;
-
-	const byUser = userIndex.get(conversationOrUserId.toLowerCase());
-	if (byUser) {
-		const stored = refs.get(byUser);
-		if (stored) return stored;
-	}
-
-	throw new Error(
-		`No hay conversation reference para '${conversationOrUserId}'. ` +
-			`El bot debe haber recibido al menos una actividad de esa conversación ` +
-			`(p.ej. que le escriban, o ser agregado al chat/canal/Team) antes de poder ` +
-			`enviar proactivamente. Usa teams_list_conversation_refs para ver las disponibles.`,
-	);
 }
 
 /**
- * Envía un mensaje proactivo a una conversación (chat o canal) por su
- * conversationId (o el AAD id del usuario para chats 1:1 ya conocidos).
+ * Envía un mensaje a una conversación (chat o canal) de Teams ya existente,
+ * reutilizando su conversationId. El bot debe estar instalado en esa conversación.
+ *
+ *  - Entrada: conversationId del chat/canal, contenido y formato del texto.
+ *  - Salida: id de la actividad enviada.
+ *  - Errores: bot no instalado en la conversación, credenciales inválidas,
+ *    conversationId incorrecto o serviceUrl regional equivocado.
  */
 export async function sendMessage(
-	conversationOrUserId: string,
+	conversationId: string,
 	content: string,
 	contentType: "text" | "html" = "text",
-): Promise<{ id?: string }> {
-	const stored = resolveRef(conversationOrUserId);
-	const adapter = getAdapter();
+): Promise<{ id?: string; conversationId: string }> {
+	const connector = getConnector();
 
-	let sentId: string | undefined;
-	await adapter.continueConversationAsync(
-		envs.BOT_APP_ID,
-		stored.reference as ConversationReference,
-		async (context) => {
-			const resp = await context.sendActivity(
-				contentType === "html"
-					? { type: "message", text: content, textFormat: "xml" }
-					: { type: "message", text: content },
-			);
-			sentId = resp?.id;
-		},
+	const response = await connector.conversations.sendToConversation(
+		conversationId,
+		// biome-ignore lint/suspicious/noExplicitAny: Activity parcial aceptada por el connector
+		buildActivity(content, contentType) as any,
 	);
-	return { id: sentId };
+	logger.info(`[bot] mensaje enviado a ${conversationId} (activityId: ${response.id})`);
+	return { id: response.id, conversationId };
 }
 
-/** Devuelve las conversation references conocidas (sin el objeto reference crudo). */
-export function listReferences(): Array<Omit<StoredRef, "reference">> {
-	return [...refs.values()].map(({ reference: _r, ...rest }) => rest);
+/**
+ * Envía un mensaje 1:1 a un usuario. Crea (o reutiliza) la conversación personal
+ * con `createConversation` y luego envía el mensaje, igual que el ejemplo
+ * send-teams-message.js.
+ *
+ *  - Entrada: AAD object id del usuario destino, contenido y formato del texto.
+ *  - Salida: id de la actividad enviada y de la conversación creada.
+ *  - Errores: app de Teams no instalada para el usuario, credenciales inválidas
+ *    o serviceUrl regional equivocado.
+ */
+export async function sendToUser(
+	userObjectId: string,
+	content: string,
+	contentType: "text" | "html" = "text",
+): Promise<{ id?: string; conversationId: string }> {
+	const connector = getConnector();
+
+	const conversation = (await connector.conversations.createConversation({
+		isGroup: false,
+		bot: { id: envs.BOT_APP_ID, name: envs.BOT_NAME },
+		members: [{ id: userObjectId, name: "" }],
+		tenantId: envs.BOT_TENANT_ID,
+		channelData: { tenant: { id: envs.BOT_TENANT_ID } },
+	})) as unknown as { id: string };
+
+	const response = await connector.conversations.sendToConversation(
+		conversation.id,
+		// biome-ignore lint/suspicious/noExplicitAny: Activity parcial aceptada por el connector
+		buildActivity(content, contentType, userObjectId) as any,
+	);
+	logger.info(
+		`[bot] mensaje 1:1 enviado a ${userObjectId} en conversación ${conversation.id} (activityId: ${response.id})`,
+	);
+	return { id: response.id, conversationId: conversation.id };
 }

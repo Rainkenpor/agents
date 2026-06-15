@@ -24,21 +24,12 @@ export const envs = {
 	get CLIENT_SECRET() {
 		return process.env.TEAMS_CLIENT_SECRET ?? "";
 	},
-	/**
-	 * ID o userPrincipalName del usuario asociado a la app (service account).
-	 * En el flujo app-only, Graph exige que este usuario sea uno de los
-	 * miembros al crear chats y uno de los owners al crear Teams; se incluye
-	 * automáticamente en esas operaciones.
-	 */
-	get APP_USER_ID() {
-		return process.env.TEAMS_APP_USER_ID ?? "";
-	},
+
 	/** Base de la API de Microsoft Graph */
 	get GRAPH_BASE_URL() {
-		return (process.env.GRAPH_BASE_URL ?? "https://graph.microsoft.com/v1.0").replace(
-			/\/$/,
-			"",
-		);
+		return (
+			process.env.GRAPH_BASE_URL ?? "https://graph.microsoft.com/v1.0"
+		).replace(/\/$/, "");
 	},
 	/** Endpoint de login para obtener el token client_credentials */
 	get TOKEN_URL() {
@@ -58,7 +49,9 @@ export const envs = {
 	},
 	/** Microsoft App Password/Secret del Azure Bot (default: TEAMS_CLIENT_SECRET) */
 	get BOT_APP_PASSWORD() {
-		return process.env.BOT_APP_PASSWORD ?? process.env.TEAMS_CLIENT_SECRET ?? "";
+		return (
+			process.env.BOT_APP_PASSWORD ?? process.env.TEAMS_CLIENT_SECRET ?? ""
+		);
 	},
 	/** Tipo de app del bot: SingleTenant | MultiTenant | UserAssignedMSI */
 	get BOT_APP_TYPE() {
@@ -68,9 +61,15 @@ export const envs = {
 	get BOT_TENANT_ID() {
 		return process.env.BOT_TENANT_ID ?? process.env.TEAMS_TENANT_ID ?? "";
 	},
-	/** Ruta del archivo donde se persisten las conversation references del bot */
-	get BOT_REFS_PATH() {
-		return process.env.BOT_REFS_PATH ?? "./.bot-refs.json";
+	/** serviceUrl regional de Teams para el ConnectorClient */
+	get SERVICE_URL() {
+		return (
+			process.env.TEAMS_SERVICE_URL ?? "https://smba.trafficmanager.net/teams/"
+		);
+	},
+	/** Nombre con el que el bot firma las actividades enviadas */
+	get BOT_NAME() {
+		return process.env.TEAMS_BOT_NAME ?? "Bot";
 	},
 
 	/** Puerto del servidor standalone */
@@ -96,7 +95,8 @@ export function assertTeamsCredentials(): void {
 export function assertBotCredentials(): void {
 	const missing: string[] = [];
 	if (!envs.BOT_APP_ID) missing.push("BOT_APP_ID (o TEAMS_CLIENT_ID)");
-	if (!envs.BOT_APP_PASSWORD) missing.push("BOT_APP_PASSWORD (o TEAMS_CLIENT_SECRET)");
+	if (!envs.BOT_APP_PASSWORD)
+		missing.push("BOT_APP_PASSWORD (o TEAMS_CLIENT_SECRET)");
 	if (envs.BOT_APP_TYPE === "SingleTenant" && !envs.BOT_TENANT_ID) {
 		missing.push("BOT_TENANT_ID (o TEAMS_TENANT_ID)");
 	}
