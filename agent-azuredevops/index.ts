@@ -47,7 +47,12 @@ async function handler(
 			rpcMethod === "tools/list" || rpcMethod === "initialize";
 
 		if (!pat && !isDiscovery) {
-			throw new Error("Credencial invalida: Personal Access Token (PAT) no definido");
+			res.end(
+				JSON.stringify({
+					error: "Credencial invalida: Personal Access Token (PAT) no definido",
+				}),
+			);
+			return;
 		}
 		const mcpServer = new McpServer(
 			{ name: "agent-azuredevops", version: "0.1.0" },

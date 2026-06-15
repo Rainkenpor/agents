@@ -36,7 +36,7 @@ async function handler(
 	res: ServerResponse,
 	parsedBody: unknown | Record<string, unknown>,
 ): Promise<void> {
-  let rpcMethod: string | undefined;
+	let rpcMethod: string | undefined;
 	if (parsedBody && typeof parsedBody === "object") {
 		try {
 			rpcMethod = (parsedBody as { method?: string }).method;
@@ -45,10 +45,10 @@ async function handler(
 		}
 	}
 
-  // isDiscovery indica si se desea solo listar las tools existentes
+	// isDiscovery indica si se desea solo listar las tools existentes
 	const isDiscovery = rpcMethod === "tools/list" || rpcMethod === "initialize";
-	
-  try {
+
+	try {
 		const mcpServer = new McpServer({ name: "teams-mcp", version: "1.0.0" });
 		initializeTools(mcpServer);
 		const transport = new StreamableHTTPServerTransport({
@@ -74,7 +74,8 @@ async function hooksHandler(
 ): Promise<void> {
 	const url = new URL(req.url ?? "/", "http://localhost");
 	// Normaliza la ruta relativa al prefijo del módulo (e.g. /template/hooks → /hooks)
-	const pathname = ("/" + url.pathname.replace(/^\/[^/]+/, "").replace(/^\//, "")) || "/";
+	const pathname =
+		"/" + url.pathname.replace(/^\/[^/]+/, "").replace(/^\//, "") || "/";
 	const method = req.method ?? "GET";
 
 	// POST /hooks/messages  →  endpoint de mensajería del Azure Bot Service
@@ -102,7 +103,10 @@ async function hooksHandler(
 	}
 
 	// GET /hooks  →  catálogo completo con payload schemas (discovery)
-	if ((pathname === "/" || pathname === "/hooks" || pathname === "") && method === "GET") {
+	if (
+		(pathname === "/" || pathname === "/hooks" || pathname === "") &&
+		method === "GET"
+	) {
 		res.writeHead(200, { "Content-Type": "application/json" });
 		res.end(JSON.stringify(getHookCatalog(), null, 2));
 		return;
@@ -146,7 +150,12 @@ async function hooksHandler(
 		res.writeHead(201, { "Content-Type": "application/json" });
 		res.end(
 			JSON.stringify(
-				{ id: sub.id, url: sub.url, events: sub.events, createdAt: sub.createdAt },
+				{
+					id: sub.id,
+					url: sub.url,
+					events: sub.events,
+					createdAt: sub.createdAt,
+				},
 				null,
 				2,
 			),
@@ -162,7 +171,9 @@ async function hooksHandler(
 		res.writeHead(removed ? 200 : 404, { "Content-Type": "application/json" });
 		res.end(
 			JSON.stringify(
-				removed ? { removed: true, id } : { error: "Subscription not found", id },
+				removed
+					? { removed: true, id }
+					: { error: "Subscription not found", id },
 			),
 		);
 		return;
@@ -194,12 +205,6 @@ export const teamsMcp: McpModule = {
 			description: "Client secret de la app registrada en Azure AD",
 		},
 		{
-			key: "TEAMS_APP_USER_ID",
-			required: false,
-			description:
-				"ID o userPrincipalName del usuario asociado a la app (service account). Se agrega automáticamente como miembro al crear chats y como owner al crear Teams (requerido por Graph en flujo app-only).",
-		},
-		{
 			key: "GRAPH_BASE_URL",
 			required: false,
 			description:
@@ -214,8 +219,7 @@ export const teamsMcp: McpModule = {
 		{
 			key: "BOT_APP_PASSWORD",
 			required: false,
-			description:
-				"Client secret del Azure Bot. Default: TEAMS_CLIENT_SECRET.",
+			description: "Client secret del Azure Bot. Default: TEAMS_CLIENT_SECRET.",
 		},
 		{
 			key: "BOT_APP_TYPE",
@@ -231,9 +235,15 @@ export const teamsMcp: McpModule = {
 		},
 	],
 	// Genera la lista de tools dinámicamente desde el registry
-	tools: registryTool.map((t) => ({ name: t.name, description: t.description })),
+	tools: registryTool.map((t) => ({
+		name: t.name,
+		description: t.description,
+	})),
 	// Genera la lista de hooks dinámicamente desde el registry
-	hooks: registryHook.map((h) => ({ name: h.name, description: h.description })),
+	hooks: registryHook.map((h) => ({
+		name: h.name,
+		description: h.description,
+	})),
 	handler,
 	hooksHandler,
 };
