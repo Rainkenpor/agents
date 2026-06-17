@@ -154,24 +154,21 @@ export const elasticMcp: McpModule = {
 	displayName: "MCP Elastic",
 	credentials: [
 		{
-			key: "ELASTIC_KIBANA_URL",
+			key: "ELASTIC_URL",
 			required: false,
-			description: `URL base de Kibana (default: ${DEFAULT_BASE_URL || "http://172.23.7.44:5601"})`,
-		},
-		{
-			key: "ELASTIC_SPACE",
-			required: false,
-			description: "Space de Kibana donde vive Discover (default: dardo-dev)",
+			description: `URL base de Elasticsearch (default: ${DEFAULT_BASE_URL || "http://172.23.7.44:9200"})`,
 		},
 		{
 			key: "ELASTIC_API_KEY",
 			required: false,
-			description: "API key de Elasticsearch (se envía como 'ApiKey <valor>')",
+			description:
+				"API key de Elasticsearch (se envía como 'ApiKey <valor>'). Opcional.",
 		},
 		{
 			key: "ELASTIC_AUTH",
 			required: false,
-			description: "Header Authorization completo alternativo, ej 'Basic <base64>'",
+			description:
+				"Header Authorization completo alternativo, ej 'Basic <base64>'. Opcional.",
 		},
 	],
 	// Genera la lista de tools dinámicamente desde el registry
