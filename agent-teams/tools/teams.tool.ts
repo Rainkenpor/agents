@@ -244,15 +244,25 @@ export const teamsTools: ToolDefinition[] = [
 				// Listamos apps con su bot y comparamos appDefinitions[].bot.id.
 				if (!app) {
 					try {
-						const all = (await graph.get("appCatalogs/teamsApps", {
+						// Nota: appCatalogs/teamsApps NO admite $top; paginamos con @odata.nextLink.
+						let nextLink: string | undefined;
+						let page = (await graph.get("appCatalogs/teamsApps", {
 							$expand: "appDefinitions($expand=bot)",
-							$top: 999,
-						})) as { value?: TeamsApp[] };
-						app = (all.value ?? []).find((a) =>
-							(a.appDefinitions ?? []).some(
-								(d) => d.bot?.id === targetBotAppId,
-							),
-						);
+						})) as { value?: TeamsApp[]; "@odata.nextLink"?: string };
+
+						while (!app) {
+							app = (page.value ?? []).find((a) =>
+								(a.appDefinitions ?? []).some(
+									(d) => d.bot?.id === targetBotAppId,
+								),
+							);
+							nextLink = page["@odata.nextLink"];
+							if (app || !nextLink) break;
+							page = (await graph.get(nextLink)) as {
+								value?: TeamsApp[];
+								"@odata.nextLink"?: string;
+							};
+						}
 					} catch (err) {
 						return ok({
 							bot: { botAppId: targetBotAppId, teamsAppId: null },
