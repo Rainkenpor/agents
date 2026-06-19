@@ -350,7 +350,7 @@ export const teamsTools: ToolDefinition[] = [
 					result.chats = {
 						available: false,
 						reason:
-							"No se pudieron enumerar los chats. Requiere Chat.ReadBasic.All (permiso de aplicación).",
+							"La enumeración de chats a nivel de organización no está soportada en contexto application-only (client_credentials). Para descubrir chats con el bot instalado se requiere autenticación delegada (on-behalf-of un usuario), o recorrer los chats usuario por usuario. Usa scope 'teams' para equipos/canales.",
 						detail: String(err),
 					};
 				}
@@ -372,12 +372,23 @@ export const teamsTools: ToolDefinition[] = [
 						channels?: Array<{ id?: string; displayName?: string }>;
 					}> = [];
 
+					let skipped = 0;
 					for (const g of groups.value ?? []) {
 						if (!g.id) continue;
-						const installed = (await graph.get(`teams/${g.id}/installedApps`, {
-							$filter: `teamsApp/id eq '${catalogAppId}'`,
-							$expand: "teamsApp",
-						})) as { value?: unknown[] };
+						// Cada grupo se aísla: un grupo que cumple el filtro pero no tiene
+						// Team aprovisionado responde 404 ("No team found with Group Id"),
+						// y a veces hay 504 transitorios. Antes el primer 404 abortaba la
+						// rama completa; ahora se omite ese grupo y se continúa.
+						let installed: { value?: unknown[] };
+						try {
+							installed = (await graph.get(`teams/${g.id}/installedApps`, {
+								$filter: `teamsApp/id eq '${catalogAppId}'`,
+								$expand: "teamsApp",
+							})) as { value?: unknown[] };
+						} catch {
+							skipped++;
+							continue;
+						}
 
 						if ((installed.value ?? []).length > 0) {
 							let channels:
@@ -404,13 +415,14 @@ export const teamsTools: ToolDefinition[] = [
 					result.teams = {
 						available: true,
 						count: items.length,
+						skipped,
 						items,
 					};
 				} catch (err) {
 					result.teams = {
 						available: false,
 						reason:
-							"No se pudieron enumerar los teams/canales. Requiere TeamsAppInstallation.ReadForTeam.All y permiso para listar grupos (Group.Read.All / Team.ReadBasic.All).",
+							"No se pudieron listar los grupos/equipos de la organización. Requiere permiso de aplicación Group.Read.All (o Group.ReadWrite.All) para enumerar grupos.",
 						detail: String(err),
 					};
 				}
