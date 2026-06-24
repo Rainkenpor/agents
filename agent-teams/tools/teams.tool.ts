@@ -289,70 +289,83 @@ export const teamsTools: ToolDefinition[] = [
 
 			const result: Record<string, unknown> = { bot };
 
-			// ─── B. Chats (org-wide) ───────────────────────────────────────────────
+			// ─── B. Chats del bot (vía usuario del bot, app-only) ─────────────────
+			// En contexto application-only NO se puede listar /chats a nivel org ni
+			// filtrar chats por installedApps. La señal real de "dónde está el bot"
+			// son los chats 1:1/grupales del propio usuario del bot: /users/{id}/chats
+			// (sí soportado app-only con Chat.Read.All/Chat.ReadWrite.All).
 			if (wantedScope === "all" || wantedScope === "chats") {
-				try {
-					type Chat = {
-						id?: string;
-						topic?: string | null;
-						chatType?: string;
-						members?: Array<{
-							displayName?: string;
-							userId?: string;
-							email?: string;
-						}>;
-					};
-					const items: Array<{
-						id?: string;
-						topic: string | null;
-						chatType?: string;
-						members: Array<{
-							displayName?: string;
-							email?: string;
-							userId?: string;
-						}>;
-					}> = [];
-
-					let next: string | undefined;
-					let page = (await graph.get("chats", {
-						$filter: `installedApps/any(a:a/teamsApp/id eq '${catalogAppId}')`,
-						$expand: "members",
-						$top: pageSize,
-					})) as { value?: Chat[]; "@odata.nextLink"?: string };
-
-					while (true) {
-						for (const c of page.value ?? []) {
-							items.push({
-								id: c.id,
-								topic: c.topic ?? null,
-								chatType: c.chatType,
-								members: (c.members ?? []).map((m) => ({
-									displayName: m.displayName,
-									email: m.email,
-									userId: m.userId,
-								})),
-							});
-						}
-						next = page["@odata.nextLink"];
-						if (!next || items.length >= pageSize) break;
-						page = (await graph.get(next)) as {
-							value?: Chat[];
-							"@odata.nextLink"?: string;
-						};
-					}
-
-					result.chats = {
-						available: true,
-						count: items.length,
-						items: items.slice(0, pageSize),
-					};
-				} catch (err) {
+				const appUserId = envs.APP_USER_ID;
+				if (!appUserId) {
 					result.chats = {
 						available: false,
 						reason:
-							"La enumeración de chats a nivel de organización no está soportada en contexto application-only (client_credentials). Para descubrir chats con el bot instalado se requiere autenticación delegada (on-behalf-of un usuario), o recorrer los chats usuario por usuario. Usa scope 'teams' para equipos/canales.",
-						detail: String(err),
+							"Para descubrir chats en contexto application-only configura TEAMS_APP_USER_ID (object id del usuario/cuenta del bot). El listado de chats a nivel organización no está soportado en app-only.",
 					};
+				} else {
+					try {
+						type Chat = {
+							id?: string;
+							topic?: string | null;
+							chatType?: string;
+							members?: Array<{
+								displayName?: string;
+								userId?: string;
+								email?: string;
+							}>;
+						};
+						const items: Array<{
+							id?: string;
+							topic: string | null;
+							chatType?: string;
+							members: Array<{
+								displayName?: string;
+								email?: string;
+								userId?: string;
+							}>;
+						}> = [];
+
+						let next: string | undefined;
+						let page = (await graph.get(`users/${appUserId}/chats`, {
+							$expand: "members",
+							$top: pageSize,
+						})) as { value?: Chat[]; "@odata.nextLink"?: string };
+
+						while (true) {
+							for (const c of page.value ?? []) {
+								items.push({
+									id: c.id,
+									topic: c.topic ?? null,
+									chatType: c.chatType,
+									members: (c.members ?? []).map((m) => ({
+										displayName: m.displayName,
+										email: m.email,
+										userId: m.userId,
+									})),
+								});
+							}
+							next = page["@odata.nextLink"];
+							if (!next || items.length >= pageSize) break;
+							page = (await graph.get(next)) as {
+								value?: Chat[];
+								"@odata.nextLink"?: string;
+							};
+						}
+
+						result.chats = {
+							available: true,
+							count: items.length,
+							botUserId: appUserId,
+							items: items.slice(0, pageSize),
+						};
+					} catch (err) {
+						result.chats = {
+							available: false,
+							reason:
+								"No se pudieron enumerar los chats del usuario del bot (TEAMS_APP_USER_ID). Verifica el object id y el permiso de aplicación Chat.Read.All o Chat.ReadWrite.All.",
+							detail: String(err),
+						};
+					}
 				}
 			}
 

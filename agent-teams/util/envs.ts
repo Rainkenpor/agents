@@ -24,6 +24,14 @@ export const envs = {
 	get CLIENT_SECRET() {
 		return process.env.TEAMS_CLIENT_SECRET ?? "";
 	},
+	/**
+	 * Object id (AAD) del usuario/cuenta asociada al bot. Permite descubrir los
+	 * chats del bot en contexto application-only vía /users/{id}/chats, ya que
+	 * /chats a nivel organización no está soportado en app-only.
+	 */
+	get APP_USER_ID() {
+		return process.env.TEAMS_APP_USER_ID ?? "";
+	},
 
 	/** Base de la API de Microsoft Graph */
 	get GRAPH_BASE_URL() {
