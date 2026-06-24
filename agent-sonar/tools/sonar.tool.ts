@@ -64,60 +64,60 @@ export const sonarTools: ToolDefinition[] = [
 			return ok(data);
 		},
 	},
-	{
-		name: "sonar_create_project",
-		description:
-			"Crea un nuevo proyecto en SonarQube. Requiere un nombre y una clave única (project key).",
-		inputSchema: {
-			name: z.string().describe("Nombre visible del proyecto"),
-			projectKey: z
-				.string()
-				.describe(
-					"Clave única del proyecto (ej: 'mi-app-backend'). Solo letras, dígitos, '-', '_', '.' y ':'",
-				),
-			mainBranch: z
-				.string()
-				.optional()
-				.describe("Nombre de la rama principal (ej: 'main'). Opcional"),
-			visibility: z
-				.enum(["public", "private"])
-				.optional()
-				.describe("Visibilidad del proyecto. Opcional"),
-		},
-		handler: async ({
-			name,
-			projectKey,
-			mainBranch,
-			visibility,
-		}: {
-			name: string;
-			projectKey: string;
-			mainBranch?: string;
-			visibility?: "public" | "private";
-		}) => {
-			const data = await sonarPost("/projects/create", {
-				name,
-				project: projectKey,
-				mainBranch,
-				visibility,
-			});
-			await emit("project.created", { projectKey, name, visibility });
-			return ok(data);
-		},
-	},
-	{
-		name: "sonar_delete_project",
-		description:
-			"Elimina un proyecto de SonarQube por su clave. Operación irreversible.",
-		inputSchema: {
-			projectKey: z.string().describe("Clave del proyecto a eliminar"),
-		},
-		handler: async ({ projectKey }: { projectKey: string }) => {
-			await sonarPost("/projects/delete", { project: projectKey });
-			await emit("project.deleted", { projectKey });
-			return ok({ deleted: true, projectKey });
-		},
-	},
+	// {
+	// 	name: "sonar_create_project",
+	// 	description:
+	// 		"Crea un nuevo proyecto en SonarQube. Requiere un nombre y una clave única (project key).",
+	// 	inputSchema: {
+	// 		name: z.string().describe("Nombre visible del proyecto"),
+	// 		projectKey: z
+	// 			.string()
+	// 			.describe(
+	// 				"Clave única del proyecto (ej: 'mi-app-backend'). Solo letras, dígitos, '-', '_', '.' y ':'",
+	// 			),
+	// 		mainBranch: z
+	// 			.string()
+	// 			.optional()
+	// 			.describe("Nombre de la rama principal (ej: 'main'). Opcional"),
+	// 		visibility: z
+	// 			.enum(["public", "private"])
+	// 			.optional()
+	// 			.describe("Visibilidad del proyecto. Opcional"),
+	// 	},
+	// 	handler: async ({
+	// 		name,
+	// 		projectKey,
+	// 		mainBranch,
+	// 		visibility,
+	// 	}: {
+	// 		name: string;
+	// 		projectKey: string;
+	// 		mainBranch?: string;
+	// 		visibility?: "public" | "private";
+	// 	}) => {
+	// 		const data = await sonarPost("/projects/create", {
+	// 			name,
+	// 			project: projectKey,
+	// 			mainBranch,
+	// 			visibility,
+	// 		});
+	// 		await emit("project.created", { projectKey, name, visibility });
+	// 		return ok(data);
+	// 	},
+	// },
+	// {
+	// 	name: "sonar_delete_project",
+	// 	description:
+	// 		"Elimina un proyecto de SonarQube por su clave. Operación irreversible.",
+	// 	inputSchema: {
+	// 		projectKey: z.string().describe("Clave del proyecto a eliminar"),
+	// 	},
+	// 	handler: async ({ projectKey }: { projectKey: string }) => {
+	// 		await sonarPost("/projects/delete", { project: projectKey });
+	// 		await emit("project.deleted", { projectKey });
+	// 		return ok({ deleted: true, projectKey });
+	// 	},
+	// },
 	{
 		name: "sonar_get_component",
 		description:
@@ -198,6 +198,20 @@ export const sonarTools: ToolDefinition[] = [
 		},
 	},
 	{
+		name: "sonar_list_branches",
+		description:
+			"Lista las ramas analizadas de un proyecto SonarQube (nombre, tipo, si es la rama principal, estado de quality gate y fecha del último análisis). Útil cuando las métricas/issues de la rama por defecto salen vacías y el análisis está en otra rama.",
+		inputSchema: {
+			projectKey: z.string().describe("Clave del proyecto"),
+		},
+		handler: async ({ projectKey }: { projectKey: string }) => {
+			const data = await sonarGet("/project_branches/list", {
+				project: projectKey,
+			});
+			return ok(data);
+		},
+	},
+	{
 		name: "sonar_search_issues",
 		description:
 			"Busca issues (bugs, vulnerabilidades, code smells) de uno o varios proyectos, con filtros por severidad, tipo y estado.",
@@ -206,6 +220,12 @@ export const sonarTools: ToolDefinition[] = [
 				.string()
 				.optional()
 				.describe("Claves de proyecto separadas por coma"),
+			branch: z
+				.string()
+				.optional()
+				.describe(
+					"Rama a consultar. Opcional. Si se omite se usa la rama principal del proyecto",
+				),
 			severities: z
 				.string()
 				.optional()
@@ -238,6 +258,7 @@ export const sonarTools: ToolDefinition[] = [
 		},
 		handler: async ({
 			projectKeys,
+			branch,
 			severities,
 			types,
 			statuses,
@@ -245,6 +266,7 @@ export const sonarTools: ToolDefinition[] = [
 			pageSize,
 		}: {
 			projectKeys?: string;
+			branch?: string;
 			severities?: string;
 			types?: string;
 			statuses?: string;
@@ -253,6 +275,7 @@ export const sonarTools: ToolDefinition[] = [
 		}) => {
 			const data = await sonarGet("/issues/search", {
 				componentKeys: projectKeys,
+				branch,
 				severities,
 				types,
 				statuses,
