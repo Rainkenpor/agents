@@ -102,43 +102,5 @@ export function logsTools(apiKey: string, appKey: string): ToolDefinition[] {
 				return ok(result);
 			},
 		},
-		{
-			name: "datadog_send_logs",
-			description: "Send log entries to Datadog. Useful for forwarding application logs.",
-			inputSchema: {
-				message: z.string().describe("Log message content"),
-				service: z.string().optional().describe("Service name that generated the log"),
-				hostname: z.string().optional().describe("Hostname where the log originated"),
-				ddsource: z.string().optional().describe("Source of the log (e.g. 'nodejs', 'python')"),
-				ddtags: z.string().optional().describe("Comma-separated Datadog tags (e.g. 'env:prod,version:1.2.3')"),
-			},
-			handler: async ({
-				message,
-				service,
-				hostname,
-				ddsource,
-				ddtags,
-			}: {
-				message: string;
-				service?: string;
-				hostname?: string;
-				ddsource?: string;
-				ddtags?: string;
-			}) => {
-				const api = new v2.LogsApi(makeConfig(apiKey, appKey));
-				const result = await api.submitLog({
-					body: [
-						{
-							message,
-							service,
-							hostname,
-							ddsource,
-							ddtags,
-						},
-					],
-				});
-				return ok(result);
-			},
-		},
 	];
 }

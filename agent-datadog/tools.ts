@@ -9,6 +9,7 @@ import { dashboardsTools } from "./tools/dashboards.tool";
 import { eventsTools } from "./tools/events.tool";
 import { slosTools } from "./tools/slos.tool";
 import { hostsTools } from "./tools/hosts.tool";
+import { servicesTools } from "./tools/services.tool";
 
 const RESPONSE_PREVIEW_LENGTH = 200;
 
@@ -22,6 +23,7 @@ function buildRegistry(apiKey: string, appKey: string): ToolDefinition[] {
 		...eventsTools(apiKey, appKey),
 		...slosTools(apiKey, appKey),
 		...hostsTools(apiKey, appKey),
+		...servicesTools(apiKey, appKey),
 	];
 }
 

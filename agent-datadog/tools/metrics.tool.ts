@@ -51,48 +51,6 @@ export function metricsTools(apiKey: string, appKey: string): ToolDefinition[] {
 			},
 		},
 		{
-			name: "datadog_submit_metrics",
-			description:
-				"Submit custom metric data points to Datadog. Useful for sending application metrics.",
-			inputSchema: {
-				metricName: z.string().describe("Name of the metric (e.g. 'custom.app.requests')"),
-				value: z.number().describe("The metric value to submit"),
-				tags: z.array(z.string()).optional().describe("Tags for the metric (e.g. ['env:prod', 'service:api'])"),
-				host: z.string().optional().describe("Hostname associated with this metric"),
-				type: z.enum(["gauge", "count", "rate"]).optional().describe("Metric type (default: gauge)"),
-			},
-			handler: async ({
-				metricName,
-				value,
-				tags,
-				host,
-				type,
-			}: {
-				metricName: string;
-				value: number;
-				tags?: string[];
-				host?: string;
-				type?: string;
-			}) => {
-				const api = new v1.MetricsApi(makeConfig(apiKey, appKey));
-				const timestamp = Math.floor(Date.now() / 1000);
-				const result = await api.submitMetrics({
-					body: {
-						series: [
-							{
-								metric: metricName,
-								points: [[timestamp, value]],
-								tags,
-								host,
-								type: type ?? "gauge",
-							},
-						],
-					},
-				});
-				return ok(result);
-			},
-		},
-		{
 			name: "datadog_query_scalar_metrics",
 			description:
 				"Query scalar (aggregated point-in-time) metrics using the v2 API. Returns a single value per group.",

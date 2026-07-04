@@ -63,43 +63,5 @@ export function hostsTools(apiKey: string, appKey: string): ToolDefinition[] {
 				return ok(result);
 			},
 		},
-		{
-			name: "datadog_mute_host",
-			description:
-				"Mute a Datadog host to suppress monitor notifications from that host.",
-			inputSchema: {
-				hostName: z.string().describe("The hostname to mute"),
-				message: z.string().optional().describe("Reason for muting the host"),
-				end: z.number().optional().describe("Unix timestamp when the mute expires (omit to mute indefinitely)"),
-				override: z.boolean().optional().describe("If true, override an existing mute with this new mute"),
-			},
-			handler: async ({
-				hostName,
-				message,
-				end,
-				override,
-			}: {
-				hostName: string;
-				message?: string;
-				end?: number;
-				override?: boolean;
-			}) => {
-				const api = new v1.HostsApi(makeConfig(apiKey, appKey));
-				const result = await api.muteHost({ hostName, body: { message, end, override } });
-				return ok(result);
-			},
-		},
-		{
-			name: "datadog_unmute_host",
-			description: "Unmute a previously muted Datadog host.",
-			inputSchema: {
-				hostName: z.string().describe("The hostname to unmute"),
-			},
-			handler: async ({ hostName }: { hostName: string }) => {
-				const api = new v1.HostsApi(makeConfig(apiKey, appKey));
-				const result = await api.unmuteHost({ hostName });
-				return ok(result);
-			},
-		},
 	];
 }
