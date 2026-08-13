@@ -140,6 +140,73 @@ export async function normanGet(
 	return parseResponse(res, url);
 }
 
+export interface InstanceHealth {
+	/** true si la instancia respondió y el token fue aceptado */
+	reachable: boolean;
+	/** Código HTTP de la respuesta (undefined si ni siquiera hubo conexión) */
+	status?: number;
+	/** Versión del servidor Rancher, si se pudo leer */
+	serverVersion?: string;
+	/** Detalle del fallo (red, TLS, 401, timeout…) cuando reachable = false */
+	error?: string;
+}
+
+/**
+ * Verifica que una instancia responda y que su token sea válido, consultando
+ * `<url>/v3/settings/server-version` (endpoint autenticado y barato).
+ * Nunca lanza: devuelve el diagnóstico para que la tool lo reporte por instancia.
+ */
+export async function checkInstance(
+	name: string,
+	timeoutMs = 5000,
+): Promise<InstanceHealth> {
+	let inst: RancherInstance;
+	try {
+		inst = resolveInstance(name);
+	} catch (err) {
+		return { reachable: false, error: String(err) };
+	}
+
+	const url = `${inst.url}/v3/settings/server-version`;
+	try {
+		const res = await fetch(
+			url,
+			fetchInit(inst, {
+				method: "GET",
+				headers: authHeaders(inst.token),
+				signal: AbortSignal.timeout(timeoutMs),
+			}),
+		);
+		const text = await res.text();
+		// 403 = el token es válido pero no tiene permiso de leer settings (no es
+		// admin). La instancia responde y autentica: cuenta como alcanzable.
+		if (res.status === 403) {
+			return {
+				reachable: true,
+				status: res.status,
+				error: "token válido pero sin permisos para leer settings (no admin)",
+			};
+		}
+		if (!res.ok) {
+			return {
+				reachable: false,
+				status: res.status,
+				error: `${res.status} ${res.statusText}: ${text.slice(0, 200) || "(sin cuerpo)"}`,
+			};
+		}
+		let serverVersion: string | undefined;
+		try {
+			serverVersion = (JSON.parse(text) as { value?: string }).value;
+		} catch {
+			// respuesta no JSON: la instancia responde igual
+		}
+		return { reachable: true, status: res.status, serverVersion };
+	} catch (err) {
+		logger.info(`[rancher] ✗ check ${name} :: ${err}`);
+		return { reachable: false, error: String(err) };
+	}
+}
+
 export interface PodLogOptions {
 	container?: string;
 	tailLines?: number;

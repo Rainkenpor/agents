@@ -13,7 +13,9 @@ import {
 	rancherPut,
 	normanGet,
 	getPodLogs,
+	checkInstance,
 } from "../util/rancher";
+import { envs } from "../util/envs";
 import {
 	collectionData,
 	slimCluster,
@@ -49,6 +51,55 @@ interface SteveDeployment {
 }
 
 export const rancherTools: ToolDefinition[] = [
+	// ─── Descubrimiento ─────────────────────────────────────────────────────────
+	{
+		name: "rancher_list_instances",
+		description:
+			"Lista las instancias de Rancher configuradas en este MCP (nombre y URL). Úsala PRIMERO para saber qué valor pasar en el parámetro `instance` del resto de tools. Con check:true verifica además conectividad y validez del token de cada instancia. Nunca devuelve los tokens.",
+		inputSchema: {
+			check: z
+				.boolean()
+				.optional()
+				.describe(
+					"Si true, consulta cada instancia para verificar que responde y que el token es válido (más lento). Default: false.",
+				),
+		},
+		handler: async ({ check }: { check?: boolean }) => {
+			const names = envs.INSTANCE_NAMES;
+			const base = names.map((name) => {
+				const inst = envs.INSTANCES[name];
+				return {
+					name,
+					url: inst?.url,
+					insecureTLS: inst?.insecureTLS === true,
+					hasToken: Boolean(inst?.token),
+				};
+			});
+
+			if (!check) {
+				return ok({
+					count: base.length,
+					instances: base,
+					...(base.length
+						? {}
+						: {
+								warning:
+									"No hay instancias configuradas. Define la variable RANCHER_INSTANCES con el JSON de instancias.",
+							}),
+				});
+			}
+
+			const instances = await Promise.all(
+				base.map(async (i) => ({ ...i, health: await checkInstance(i.name) })),
+			);
+			return ok({
+				count: instances.length,
+				reachable: instances.filter((i) => i.health.reachable).length,
+				instances,
+			});
+		},
+	},
+
 	// ─── Lectura ────────────────────────────────────────────────────────────────
 	{
 		name: "rancher_list_clusters",
